@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,19 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalCafe
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -51,23 +44,32 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.receiptai.tracker.presentation.expense.AddExpenseBottomSheet
+import com.receiptai.tracker.presentation.analytics.AnalyticsScreen
+import com.receiptai.tracker.presentation.history.TransactionHistoryScreen
+import com.receiptai.tracker.presentation.navigation.AppSectionHeader
+import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
+import com.receiptai.tracker.presentation.settings.SettingsScreen
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.pow
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
+import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
+import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
+import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
+import com.receiptai.tracker.ui.theme.ReceiptAISurface
 
 private val DashboardBackground = ReceiptAIBackground
-private val CardBackground = Color.White
-private val BrandPurple = Color(0xFF563994)
-private val SecondaryText = Color(0xFF686572)
+private val CardBackground = ReceiptAISurface
+private val BrandPurple = ReceiptAIDeepPurple
+private val SecondaryText = ReceiptAISecondaryText
 
 @Composable
 fun DashboardRoute(
@@ -75,11 +77,56 @@ fun DashboardRoute(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    DashboardScreen(
-        state = state,
-        onIntent = viewModel::onIntent,
-        modifier = modifier
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        when (state.selectedDestination) {
+            DashboardDestination.HISTORY -> TransactionHistoryScreen(
+                onDestinationSelected = { destination ->
+                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                },
+                onAddExpenseClick = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            DashboardDestination.ANALYTICS -> AnalyticsScreen(
+                onDestinationSelected = { destination ->
+                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                },
+                onAddExpenseClick = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            DashboardDestination.SETTINGS -> SettingsScreen(
+                onDestinationSelected = { destination ->
+                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                },
+                onAddExpenseClick = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            else -> DashboardScreen(
+                state = state,
+                onIntent = viewModel::onIntent,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (state.isAddExpenseSheetVisible) {
+            AddExpenseBottomSheet(
+                onDismissRequest = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
+                },
+                onScanReceipt = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
+                },
+                onAddManually = {
+                    viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -93,7 +140,7 @@ fun DashboardScreen(
         containerColor = DashboardBackground,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            DashboardBottomBar(
+            ReceiptAIBottomBar(
                 selectedDestination = state.selectedDestination,
                 onDestinationSelected = { destination ->
                     onIntent(DashboardIntent.DestinationSelected(destination))
@@ -115,14 +162,14 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                DashboardHeader()
+                AppSectionHeader(title = "Home")
             }
             item {
                 Text(
                     text = "Welcome back",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E1D21)
+                    color = ReceiptAIPrimaryText
                 )
             }
             item {
@@ -168,36 +215,6 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFE9E2F7)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.AccountBalanceWallet,
-                contentDescription = null,
-                tint = BrandPurple,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "Overview",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = BrandPurple
-        )
-    }
-}
-
-@Composable
 private fun BalanceCard(state: DashboardState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -216,7 +233,7 @@ private fun BalanceCard(state: DashboardState) {
                 text = formatMoney(state.totalBalanceMinorUnits, state.currency),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E1D21)
+                color = ReceiptAIPrimaryText
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -250,7 +267,7 @@ private fun MonthlySpendingCard(state: DashboardState) {
                 text = "Monthly Spending",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E1D21)
+                color = ReceiptAIPrimaryText
             )
             Spacer(modifier = Modifier.height(16.dp))
             if (state.categoryBreakdown.isEmpty()) {
@@ -339,7 +356,7 @@ private fun SpendingDonut(
                 text = totalSpent,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E1D21)
+                color = ReceiptAIPrimaryText
             )
         }
     }
@@ -380,7 +397,7 @@ private fun RecentTransactionsHeader(onSeeAllClick: () -> Unit) {
             text = "Recent Transactions",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E1D21),
+            color = ReceiptAIPrimaryText,
             modifier = Modifier.weight(1f)
         )
         Text(
@@ -414,7 +431,7 @@ private fun TransactionCard(transaction: RecentTransaction) {
                     text = transaction.merchantName,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF242229)
+                    color = ReceiptAIPrimaryText
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
@@ -433,7 +450,7 @@ private fun TransactionCard(transaction: RecentTransaction) {
                 text = "-${formatMoney(transaction.amountMinorUnits, transaction.currency)}",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF242229)
+                color = ReceiptAIPrimaryText
             )
         }
     }
@@ -497,106 +514,6 @@ private fun EmptyTransactionsCard() {
     }
 }
 
-@Composable
-private fun DashboardBottomBar(
-    selectedDestination: DashboardDestination,
-    onDestinationSelected: (DashboardDestination) -> Unit,
-    onAddClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground)
-            .navigationBarsPadding()
-    ) {
-        BottomAppBar(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            containerColor = CardBackground,
-            contentColor = SecondaryText,
-            tonalElevation = 4.dp
-        ) {
-            BottomBarItem(
-                destination = DashboardDestination.HOME,
-                label = "Home",
-                icon = Icons.Default.Home,
-                selectedDestination = selectedDestination,
-                onClick = onDestinationSelected,
-                modifier = Modifier.weight(1f)
-            )
-            BottomBarItem(
-                destination = DashboardDestination.HISTORY,
-                label = "History",
-                icon = Icons.Default.GridView,
-                selectedDestination = selectedDestination,
-                onClick = onDestinationSelected,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(modifier = Modifier.width(72.dp))
-            BottomBarItem(
-                destination = DashboardDestination.ANALYTICS,
-                label = "Analytics",
-                icon = Icons.Default.Analytics,
-                selectedDestination = selectedDestination,
-                onClick = onDestinationSelected,
-                modifier = Modifier.weight(1f)
-            )
-            BottomBarItem(
-                destination = DashboardDestination.SETTINGS,
-                label = "Settings",
-                icon = Icons.Default.Settings,
-                selectedDestination = selectedDestination,
-                onClick = onDestinationSelected,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        FloatingActionButton(
-            onClick = onAddClick,
-            containerColor = BrandPurple,
-            contentColor = Color.White,
-            shape = CircleShape,
-            modifier = Modifier
-                .size(64.dp)
-                .align(Alignment.TopCenter)
-                .offset(y = (-16).dp)
-        ) {
-            Text(text = "+", fontSize = 30.sp, fontWeight = FontWeight.Light)
-        }
-    }
-}
-
-@Composable
-private fun BottomBarItem(
-    destination: DashboardDestination,
-    label: String,
-    icon: ImageVector,
-    selectedDestination: DashboardDestination,
-    onClick: (DashboardDestination) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isSelected = destination == selectedDestination
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onClick(destination) }
-            .padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = if (isSelected) BrandPurple else SecondaryText,
-            modifier = Modifier.size(21.dp)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isSelected) BrandPurple else SecondaryText,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
-
 private fun formatMoney(amountMinorUnits: Long, currencyCode: String): String {
     val currency = runCatching { Currency.getInstance(currencyCode) }
         .getOrDefault(Currency.getInstance("USD"))
@@ -608,29 +525,12 @@ private fun formatMoney(amountMinorUnits: Long, currencyCode: String): String {
     }.format(amountMinorUnits / 10.0.pow(fractionDigits))
 }
 
-private val PreviewDashboardState = DashboardState(
-    isLoading = false,
-    totalBalanceMinorUnits = 4_250_00L,
-    monthlySpendingMinorUnits = 1_840_00L,
-    categoryBreakdown = listOf(
-        CategorySpend("Housing", 45, 0xFF563994),
-        CategorySpend("Food", 25, 0xFFA7E8C0),
-        CategorySpend("Transport", 15, 0xFFC9B9E3),
-        CategorySpend("Utilities", 15, 0xFF6C627D)
-    ),
-    recentTransactions = listOf(
-        RecentTransaction("1", "Starbucks", 550, "USD", "Food"),
-        RecentTransaction("2", "Uber", 1_200, "USD", "Transport"),
-        RecentTransaction("3", "Rent", 120_000, "USD", "Housing")
-    )
-)
-
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun DashboardScreenPreview() {
     ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
         DashboardScreen(
-            state = PreviewDashboardState,
+            state = DashboardState(isLoading = false),
             onIntent = {}
         )
     }

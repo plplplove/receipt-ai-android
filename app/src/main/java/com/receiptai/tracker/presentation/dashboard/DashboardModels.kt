@@ -29,12 +29,14 @@ data class DashboardState(
     val categoryBreakdown: List<CategorySpend> = emptyList(),
     val recentTransactions: List<RecentTransaction> = emptyList(),
     val selectedDestination: DashboardDestination = DashboardDestination.HOME,
+    val isAddExpenseSheetVisible: Boolean = false,
     val errorMessage: String? = null
 )
 
 sealed interface DashboardIntent {
     data object Refresh : DashboardIntent
     data object AddExpenseClicked : DashboardIntent
+    data object AddExpenseDismissed : DashboardIntent
     data class DestinationSelected(val destination: DashboardDestination) : DashboardIntent
     data object ErrorDismissed : DashboardIntent
 }

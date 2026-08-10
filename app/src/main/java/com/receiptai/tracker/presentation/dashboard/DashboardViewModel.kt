@@ -33,7 +33,10 @@ class DashboardViewModel @Inject constructor(
         when (intent) {
             DashboardIntent.Refresh -> observeExpenses()
             DashboardIntent.AddExpenseClicked -> {
-                // The expense-entry flow will be connected here in the next feature slice.
+                _state.update { it.copy(isAddExpenseSheetVisible = true) }
+            }
+            DashboardIntent.AddExpenseDismissed -> {
+                _state.update { it.copy(isAddExpenseSheetVisible = false) }
             }
             is DashboardIntent.DestinationSelected -> {
                 _state.update { it.copy(selectedDestination = intent.destination) }
