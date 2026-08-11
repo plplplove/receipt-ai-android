@@ -4,10 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.receiptai.tracker.domain.model.Expense
 import com.receiptai.tracker.domain.repository.ExpenseRepository
+import com.receiptai.tracker.presentation.expense.AddEditTransactionUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.RoundingMode
+import java.util.Currency
+import java.util.UUID
 import java.util.Calendar
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +21,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
+import kotlin.math.abs
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -38,11 +44,51 @@ class DashboardViewModel @Inject constructor(
             DashboardIntent.AddExpenseDismissed -> {
                 _state.update { it.copy(isAddExpenseSheetVisible = false) }
             }
+            DashboardIntent.AddExpenseManuallyClicked -> {
+                _state.update {
+                    it.copy(
+                        isAddExpenseSheetVisible = false,
+                        isAddEditTransactionVisible = true
+                    )
+                }
+            }
+            DashboardIntent.AddEditTransactionDismissed -> {
+                _state.update { it.copy(isAddEditTransactionVisible = false) }
+            }
             is DashboardIntent.DestinationSelected -> {
                 _state.update { it.copy(selectedDestination = intent.destination) }
             }
             DashboardIntent.ErrorDismissed -> {
                 _state.update { it.copy(errorMessage = null) }
+            }
+        }
+    }
+
+    fun saveTransaction(formState: AddEditTransactionUiState) {
+        val expense = formState.toExpenseOrNull()
+        if (expense == null) {
+            _state.update {
+                it.copy(errorMessage = "Please complete all required fields.")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                expenseRepository.saveExpense(expense)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        isAddEditTransactionVisible = false,
+                        errorMessage = null
+                    )
+                }
+            }.onFailure { throwable ->
+                _state.update {
+                    it.copy(
+                        errorMessage = throwable.message ?: "Unable to save the transaction"
+                    )
+                }
             }
         }
     }
@@ -70,6 +116,28 @@ class DashboardViewModel @Inject constructor(
     }
 }
 
+private fun AddEditTransactionUiState.toExpenseOrNull(): Expense? = runCatching {
+    val amount = totalAmount.toBigDecimalOrNull() ?: return@runCatching null
+    val currency = Currency.getInstance(currencyCode)
+    val fractionDigits = currency.defaultFractionDigits.coerceAtLeast(0)
+    val amountMinorUnits = amount
+        .movePointRight(fractionDigits)
+        .setScale(0, RoundingMode.HALF_UP)
+        .longValueExact()
+        .takeIf { it > 0L }
+        ?: return@runCatching null
+    val timestamp = dateMillis ?: return@runCatching null
+
+    Expense(
+        id = UUID.randomUUID().toString(),
+        merchantName = merchantName.trim(),
+        amountMinorUnits = -amountMinorUnits,
+        currency = currencyCode,
+        dateTimestamp = timestamp,
+        category = category.trim()
+    )
+}.getOrNull()
+
 private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState {
     val currentMonth = Calendar.getInstance().let { calendar ->
         calendar.get(Calendar.YEAR) to calendar.get(Calendar.MONTH)
@@ -80,9 +148,11 @@ private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState
                 calendar.get(Calendar.MONTH) == currentMonth.second
         }
     }
-    val totalSpent = currentMonthExpenses.sumOf { it.amountMinorUnits }
+    val totalSpent = currentMonthExpenses
+        .filter { it.amountMinorUnits < 0L }
+        .sumOf { abs(it.amountMinorUnits) }
     val categoryTotals = currentMonthExpenses.groupingBy { it.category }
-        .fold(0L) { total, expense -> total + expense.amountMinorUnits }
+        .fold(0L) { total, expense -> total + abs(expense.amountMinorUnits) }
     val categoryTotal = categoryTotals.values.sum().takeIf { it > 0L } ?: 1L
     val categories = categoryTotals.entries
         .sortedByDescending { it.value }
@@ -96,6 +166,8 @@ private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState
 
     return copy(
         isLoading = false,
+        expenses = expenses,
+        totalBalanceMinorUnits = expenses.sumOf { it.amountMinorUnits },
         monthlySpendingMinorUnits = totalSpent,
         currency = currentMonthExpenses.firstOrNull()?.currency ?: currency,
         categoryBreakdown = categories,

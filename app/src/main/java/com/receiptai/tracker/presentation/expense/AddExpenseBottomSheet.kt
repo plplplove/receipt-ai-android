@@ -155,7 +155,7 @@ private fun ExpenseOptionCard(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                    color = ReceiptAIDeepPurple
+                color = ReceiptAIDeepPurple
             )
         }
     }

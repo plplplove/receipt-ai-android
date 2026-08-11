@@ -1,5 +1,7 @@
 package com.receiptai.tracker.presentation.dashboard
 
+import com.receiptai.tracker.domain.model.Expense
+
 enum class DashboardDestination {
     HOME,
     HISTORY,
@@ -28,8 +30,10 @@ data class DashboardState(
     val currency: String = "USD",
     val categoryBreakdown: List<CategorySpend> = emptyList(),
     val recentTransactions: List<RecentTransaction> = emptyList(),
+    val expenses: List<Expense> = emptyList(),
     val selectedDestination: DashboardDestination = DashboardDestination.HOME,
     val isAddExpenseSheetVisible: Boolean = false,
+    val isAddEditTransactionVisible: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -37,6 +41,8 @@ sealed interface DashboardIntent {
     data object Refresh : DashboardIntent
     data object AddExpenseClicked : DashboardIntent
     data object AddExpenseDismissed : DashboardIntent
+    data object AddExpenseManuallyClicked : DashboardIntent
+    data object AddEditTransactionDismissed : DashboardIntent
     data class DestinationSelected(val destination: DashboardDestination) : DashboardIntent
     data object ErrorDismissed : DashboardIntent
 }

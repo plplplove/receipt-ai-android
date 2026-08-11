@@ -37,7 +37,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,12 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.receiptai.tracker.presentation.expense.AddExpenseBottomSheet
+import com.receiptai.tracker.presentation.expense.AddEditTransactionScreen
+import com.receiptai.tracker.presentation.expense.AddEditTransactionUiState
 import com.receiptai.tracker.presentation.analytics.AnalyticsScreen
+import com.receiptai.tracker.presentation.history.HistoryTransaction
 import com.receiptai.tracker.presentation.history.TransactionHistoryScreen
 import com.receiptai.tracker.presentation.navigation.AppSectionHeader
 import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.presentation.settings.SettingsScreen
 import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.pow
@@ -77,40 +85,72 @@ fun DashboardRoute(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var addEditTransactionState by remember {
+        mutableStateOf(AddEditTransactionUiState())
+    }
+
+    LaunchedEffect(state.isAddEditTransactionVisible) {
+        if (!state.isAddEditTransactionVisible) {
+            addEditTransactionState = AddEditTransactionUiState()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
-        when (state.selectedDestination) {
-            DashboardDestination.HISTORY -> TransactionHistoryScreen(
-                onDestinationSelected = { destination ->
-                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+        if (state.isAddEditTransactionVisible) {
+            AddEditTransactionScreen(
+                state = addEditTransactionState,
+                onBack = {
+                    viewModel.onIntent(DashboardIntent.AddEditTransactionDismissed)
                 },
-                onAddExpenseClick = {
-                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                },
+                onStateChange = { addEditTransactionState = it },
+                onConfirmSave = viewModel::saveTransaction,
                 modifier = Modifier.fillMaxSize()
             )
-            DashboardDestination.ANALYTICS -> AnalyticsScreen(
-                onDestinationSelected = { destination ->
-                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
-                },
-                onAddExpenseClick = {
-                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            DashboardDestination.SETTINGS -> SettingsScreen(
-                onDestinationSelected = { destination ->
-                    viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
-                },
-                onAddExpenseClick = {
-                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            else -> DashboardScreen(
-                state = state,
-                onIntent = viewModel::onIntent,
-                modifier = Modifier.fillMaxSize()
-            )
+        } else {
+            when (state.selectedDestination) {
+                DashboardDestination.HISTORY -> TransactionHistoryScreen(
+                    transactions = state.expenses.map { expense ->
+                        HistoryTransaction(
+                            id = expense.id,
+                            dateGroup = historyDateGroup(expense.dateTimestamp),
+                            merchantName = expense.merchantName,
+                            category = expense.category,
+                            amountMinorUnits = expense.amountMinorUnits,
+                            currency = expense.currency
+                        )
+                    },
+                    onDestinationSelected = { destination ->
+                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                    },
+                    onAddExpenseClick = {
+                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                DashboardDestination.ANALYTICS -> AnalyticsScreen(
+                    onDestinationSelected = { destination ->
+                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                    },
+                    onAddExpenseClick = {
+                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                DashboardDestination.SETTINGS -> SettingsScreen(
+                    onDestinationSelected = { destination ->
+                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
+                    },
+                    onAddExpenseClick = {
+                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                else -> DashboardScreen(
+                    state = state,
+                    onIntent = viewModel::onIntent,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         if (state.isAddExpenseSheetVisible) {
@@ -122,11 +162,35 @@ fun DashboardRoute(
                     viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
                 },
                 onAddManually = {
-                    viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
+                    addEditTransactionState = AddEditTransactionUiState()
+                    viewModel.onIntent(DashboardIntent.AddExpenseManuallyClicked)
                 }
             )
         }
     }
+}
+
+private fun historyDateGroup(timestamp: Long): String {
+    val today = Calendar.getInstance().startOfDay()
+    val transactionDay = Calendar.getInstance().apply {
+        timeInMillis = timestamp
+    }.startOfDay()
+    val differenceInDays = ((today.timeInMillis - transactionDay.timeInMillis) /
+        (24L * 60L * 60L * 1000L)).toInt()
+
+    return when {
+        differenceInDays <= 0 -> "Today"
+        differenceInDays == 1 -> "Yesterday"
+        differenceInDays in 2..6 -> "This Week"
+        else -> "Older"
+    }
+}
+
+private fun Calendar.startOfDay(): Calendar = apply {
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
 }
 
 @Composable
@@ -447,10 +511,14 @@ private fun TransactionCard(transaction: RecentTransaction) {
                 }
             }
             Text(
-                text = "-${formatMoney(transaction.amountMinorUnits, transaction.currency)}",
+                text = formatSignedMoney(transaction.amountMinorUnits, transaction.currency),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = ReceiptAIPrimaryText
+                color = if (transaction.amountMinorUnits < 0L) {
+                    Color(0xFFC62828)
+                } else {
+                    Color(0xFF2E7D52)
+                }
             )
         }
     }
@@ -523,6 +591,11 @@ private fun formatMoney(amountMinorUnits: Long, currencyCode: String): String {
         maximumFractionDigits = fractionDigits
         minimumFractionDigits = fractionDigits
     }.format(amountMinorUnits / 10.0.pow(fractionDigits))
+}
+
+private fun formatSignedMoney(amountMinorUnits: Long, currencyCode: String): String {
+    val formatted = formatMoney(kotlin.math.abs(amountMinorUnits), currencyCode)
+    return if (amountMinorUnits < 0L) "-$formatted" else "+$formatted"
 }
 
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)

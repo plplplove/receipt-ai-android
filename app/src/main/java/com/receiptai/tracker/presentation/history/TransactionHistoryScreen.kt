@@ -100,7 +100,7 @@ fun TransactionHistoryScreen(
             transaction.matches(appliedFilters)
     }
     val groupedTransactions = filteredTransactions.groupBy { it.dateGroup }
-    val groupOrder = listOf("Today", "Yesterday", "This Week")
+    val groupOrder = listOf("Today", "Yesterday", "This Week", "Older")
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
