@@ -6,5 +6,6 @@ data class Expense(
     val amountMinorUnits: Long,
     val currency: String,
     val dateTimestamp: Long,
-    val category: String
+    val category: String,
+    val notes: String = ""
 )

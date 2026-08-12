@@ -4,15 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.receiptai.tracker.domain.model.Expense
 import com.receiptai.tracker.domain.repository.ExpenseRepository
+import com.receiptai.tracker.presentation.components.categoryAccentArgb
+import com.receiptai.tracker.presentation.components.parsePositiveAmount
 import com.receiptai.tracker.presentation.expense.AddEditTransactionUiState
+import com.receiptai.tracker.presentation.expense.TransactionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.RoundingMode
-import java.util.Currency
-import java.util.UUID
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Currency
+import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +28,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
-import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -38,58 +45,195 @@ class DashboardViewModel @Inject constructor(
     fun onIntent(intent: DashboardIntent) {
         when (intent) {
             DashboardIntent.Refresh -> observeExpenses()
-            DashboardIntent.AddExpenseClicked -> {
-                _state.update { it.copy(isAddExpenseSheetVisible = true) }
-            }
-            DashboardIntent.AddExpenseDismissed -> {
-                _state.update { it.copy(isAddExpenseSheetVisible = false) }
-            }
-            DashboardIntent.AddExpenseManuallyClicked -> {
-                _state.update {
-                    it.copy(
-                        isAddExpenseSheetVisible = false,
-                        isAddEditTransactionVisible = true
-                    )
-                }
-            }
-            DashboardIntent.AddEditTransactionDismissed -> {
-                _state.update { it.copy(isAddEditTransactionVisible = false) }
-            }
-            is DashboardIntent.DestinationSelected -> {
-                _state.update { it.copy(selectedDestination = intent.destination) }
-            }
+            DashboardIntent.AddExpenseClicked -> showAddExpenseSheet()
+            DashboardIntent.AddExpenseDismissed -> dismissAddExpenseSheet()
+            DashboardIntent.ScanReceiptClicked -> showScanReceiptUnavailableMessage()
+            DashboardIntent.AddExpenseManuallyClicked -> startAddingTransaction()
+            is DashboardIntent.TransactionSelected -> showTransactionDetails(intent.transactionId)
+            DashboardIntent.TransactionDetailsDismissed -> closeTransactionFlow()
+            DashboardIntent.EditTransactionClicked -> startEditingTransaction()
+            is DashboardIntent.TransactionFormChanged -> updateTransactionForm(intent.form)
+            DashboardIntent.SaveTransactionClicked -> saveCurrentTransaction()
+            DashboardIntent.AddEditTransactionDismissed -> dismissTransactionEditor()
+            DashboardIntent.DeleteTransactionConfirmed -> deleteSelectedTransaction()
+            is DashboardIntent.DestinationSelected -> selectDestination(intent.destination)
             DashboardIntent.ErrorDismissed -> {
                 _state.update { it.copy(errorMessage = null) }
             }
         }
     }
 
-    fun saveTransaction(formState: AddEditTransactionUiState) {
-        val expense = formState.toExpenseOrNull()
-        if (expense == null) {
-            _state.update {
-                it.copy(errorMessage = "Please complete all required fields.")
+    private fun showAddExpenseSheet() {
+        _state.update { it.copy(isAddExpenseSheetVisible = true, errorMessage = null) }
+    }
+
+    private fun dismissAddExpenseSheet() {
+        _state.update { it.copy(isAddExpenseSheetVisible = false) }
+    }
+
+    private fun showScanReceiptUnavailableMessage() {
+        _state.update {
+            it.copy(
+                isAddExpenseSheetVisible = false,
+                errorMessage = "Receipt scanning is coming soon."
+            )
+        }
+    }
+
+    private fun startAddingTransaction() {
+        _state.update {
+            it.copy(
+                isAddExpenseSheetVisible = false,
+                transactionFlowScreen = TransactionFlowScreen.ADD,
+                selectedTransactionId = null,
+                transactionForm = AddEditTransactionUiState(),
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun showTransactionDetails(transactionId: String) {
+        _state.update { current ->
+            if (current.expenses.none { it.id == transactionId }) {
+                current.copy(errorMessage = "Transaction not found")
+            } else {
+                current.copy(
+                    transactionFlowScreen = TransactionFlowScreen.DETAILS,
+                    selectedTransactionId = transactionId,
+                    errorMessage = null
+                )
             }
+        }
+    }
+
+    private fun startEditingTransaction() {
+        _state.update { current ->
+            val transaction = current.selectedTransaction ?: return@update current
+            current.copy(
+                transactionFlowScreen = TransactionFlowScreen.EDIT,
+                transactionForm = transaction.toFormState(),
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun updateTransactionForm(form: AddEditTransactionUiState) {
+        _state.update { it.copy(transactionForm = form) }
+    }
+
+    private fun dismissTransactionEditor() {
+        _state.update { current ->
+            val destination = if (
+                current.transactionFlowScreen == TransactionFlowScreen.EDIT &&
+                current.selectedTransaction != null
+            ) {
+                TransactionFlowScreen.DETAILS
+            } else {
+                TransactionFlowScreen.NONE
+            }
+            current.copy(
+                transactionFlowScreen = destination,
+                transactionForm = AddEditTransactionUiState(),
+                isSaving = false,
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun closeTransactionFlow() {
+        _state.update {
+            it.copy(
+                transactionFlowScreen = TransactionFlowScreen.NONE,
+                selectedTransactionId = null,
+                transactionForm = AddEditTransactionUiState(),
+                isSaving = false,
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun selectDestination(destination: DashboardDestination) {
+        _state.update {
+            it.copy(
+                selectedDestination = destination,
+                transactionFlowScreen = TransactionFlowScreen.NONE,
+                selectedTransactionId = null,
+                isAddExpenseSheetVisible = false
+            )
+        }
+    }
+
+    private fun saveCurrentTransaction() {
+        val current = _state.value
+        if (current.isSaving) return
+
+        val transactionId = when (current.transactionFlowScreen) {
+            TransactionFlowScreen.EDIT -> current.selectedTransactionId
+            TransactionFlowScreen.ADD -> UUID.randomUUID().toString()
+            else -> null
+        }
+        val expense = transactionId?.let { current.transactionForm.toExpenseOrNull(it) }
+        if (expense == null) {
+            _state.update { it.copy(errorMessage = "Please complete all required fields.") }
             return
         }
 
+        val wasEditing = current.transactionFlowScreen == TransactionFlowScreen.EDIT
+        _state.update { it.copy(isSaving = true, errorMessage = null) }
         viewModelScope.launch {
-            runCatching {
-                expenseRepository.saveExpense(expense)
-            }.onSuccess {
-                _state.update {
-                    it.copy(
-                        isAddEditTransactionVisible = false,
-                        errorMessage = null
-                    )
+            runCatching { expenseRepository.saveExpense(expense) }
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            transactionFlowScreen = if (wasEditing) {
+                                TransactionFlowScreen.DETAILS
+                            } else {
+                                TransactionFlowScreen.NONE
+                            },
+                            selectedTransactionId = if (wasEditing) expense.id else null,
+                            transactionForm = AddEditTransactionUiState(),
+                            isSaving = false,
+                            errorMessage = null
+                        )
+                    }
                 }
-            }.onFailure { throwable ->
-                _state.update {
-                    it.copy(
-                        errorMessage = throwable.message ?: "Unable to save the transaction"
-                    )
+                .onFailure { throwable ->
+                    _state.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = throwable.message ?: "Unable to save transaction"
+                        )
+                    }
                 }
-            }
+        }
+    }
+
+    private fun deleteSelectedTransaction() {
+        val transactionId = _state.value.selectedTransactionId ?: return
+        if (_state.value.isSaving) return
+
+        _state.update { it.copy(isSaving = true, errorMessage = null) }
+        viewModelScope.launch {
+            runCatching { expenseRepository.deleteExpense(transactionId) }
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            transactionFlowScreen = TransactionFlowScreen.NONE,
+                            selectedTransactionId = null,
+                            transactionForm = AddEditTransactionUiState(),
+                            isSaving = false,
+                            errorMessage = null
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    _state.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = throwable.message ?: "Unable to delete transaction"
+                        )
+                    }
+                }
         }
     }
 
@@ -100,9 +244,7 @@ class DashboardViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = true, errorMessage = null) }
             }
             .onEach { expenses ->
-                _state.update { currentState ->
-                    currentState.fromExpenses(expenses)
-                }
+                _state.update { currentState -> currentState.fromExpenses(expenses) }
             }
             .catch { throwable ->
                 _state.update {
@@ -116,8 +258,8 @@ class DashboardViewModel @Inject constructor(
     }
 }
 
-private fun AddEditTransactionUiState.toExpenseOrNull(): Expense? = runCatching {
-    val amount = totalAmount.toBigDecimalOrNull() ?: return@runCatching null
+private fun AddEditTransactionUiState.toExpenseOrNull(id: String): Expense? = runCatching {
+    val amount = parsePositiveAmount(totalAmount) ?: return@runCatching null
     val currency = Currency.getInstance(currencyCode)
     val fractionDigits = currency.defaultFractionDigits.coerceAtLeast(0)
     val amountMinorUnits = amount
@@ -127,51 +269,106 @@ private fun AddEditTransactionUiState.toExpenseOrNull(): Expense? = runCatching 
         .takeIf { it > 0L }
         ?: return@runCatching null
     val timestamp = dateMillis ?: return@runCatching null
+    val merchant = merchantName.trim().takeIf { it.isNotEmpty() } ?: return@runCatching null
+    val selectedCategory = category.trim().takeIf { it.isNotEmpty() } ?: return@runCatching null
 
     Expense(
-        id = UUID.randomUUID().toString(),
-        merchantName = merchantName.trim(),
-        amountMinorUnits = -amountMinorUnits,
-        currency = currencyCode,
+        id = id,
+        merchantName = merchant,
+        amountMinorUnits = signedAmountMinorUnits(amountMinorUnits, transactionType),
+        currency = currency.currencyCode,
         dateTimestamp = timestamp,
-        category = category.trim()
+        category = selectedCategory,
+        notes = notes.trim()
     )
 }.getOrNull()
 
+private fun Expense.toFormState(): AddEditTransactionUiState {
+    val currencyData = runCatching { Currency.getInstance(currency) }
+        .getOrDefault(Currency.getInstance("USD"))
+    val fractionDigits = currencyData.defaultFractionDigits.coerceAtLeast(0)
+    val amount = abs(amountMinorUnits)
+        .div(10.0.pow(fractionDigits))
+        .let { value ->
+            if (fractionDigits == 0) {
+                value.toLong().toString()
+            } else {
+                String.format(Locale.US, "%.${fractionDigits}f", value)
+            }
+        }
+    return AddEditTransactionUiState(
+        merchantName = merchantName,
+        totalAmount = amount,
+        dateText = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            .format(dateTimestamp),
+        dateMillis = dateTimestamp,
+        currencyCode = currency,
+        category = category,
+        notes = notes,
+        transactionType = if (amountMinorUnits > 0L) {
+            TransactionType.INCOME
+        } else {
+            TransactionType.EXPENSE
+        }
+    )
+}
+
+internal fun signedAmountMinorUnits(
+    absoluteAmountMinorUnits: Long,
+    transactionType: TransactionType
+): Long = if (transactionType == TransactionType.INCOME) {
+    absoluteAmountMinorUnits
+} else {
+    -absoluteAmountMinorUnits
+}
+
 private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState {
+    val summaryCurrency = expenses.firstOrNull()?.currency ?: currency
+    val expensesInCurrency = expenses.filter { it.currency == summaryCurrency }
     val currentMonth = Calendar.getInstance().let { calendar ->
         calendar.get(Calendar.YEAR) to calendar.get(Calendar.MONTH)
     }
-    val currentMonthExpenses = expenses.filter { expense ->
+    val currentMonthExpenses = expensesInCurrency.filter { expense ->
         Calendar.getInstance().apply { timeInMillis = expense.dateTimestamp }.let { calendar ->
             calendar.get(Calendar.YEAR) == currentMonth.first &&
                 calendar.get(Calendar.MONTH) == currentMonth.second
         }
     }
-    val totalSpent = currentMonthExpenses
-        .filter { it.amountMinorUnits < 0L }
-        .sumOf { abs(it.amountMinorUnits) }
-    val categoryTotals = currentMonthExpenses.groupingBy { it.category }
+    val currentMonthSpending = currentMonthExpenses.filter { it.amountMinorUnits < 0L }
+    val totalSpent = currentMonthSpending.sumOf { abs(it.amountMinorUnits) }
+    val categoryTotals = currentMonthSpending.groupingBy { it.category }
         .fold(0L) { total, expense -> total + abs(expense.amountMinorUnits) }
-    val categoryTotal = categoryTotals.values.sum().takeIf { it > 0L } ?: 1L
-    val categories = categoryTotals.entries
+    val sortedCategoryTotals = categoryTotals.entries
         .sortedByDescending { it.value }
-        .map { (category, amount) ->
+    val categoryPercentages = calculateCategoryPercentages(
+        sortedCategoryTotals.map { it.value }
+    )
+    val categories = sortedCategoryTotals
+        .mapIndexed { index, (category, _) ->
             CategorySpend(
                 name = category,
-                percentage = ((amount * 100) / categoryTotal).toInt().coerceAtLeast(1),
-                color = categoryColor(category)
+                percentage = categoryPercentages[index],
+                color = categoryAccentArgb(category)
             )
         }
+    val selectedStillExists = selectedTransactionId == null ||
+        expenses.any { it.id == selectedTransactionId }
 
     return copy(
         isLoading = false,
         expenses = expenses,
-        totalBalanceMinorUnits = expenses.sumOf { it.amountMinorUnits },
+        totalBalanceMinorUnits = expensesInCurrency.sumOf { it.amountMinorUnits },
         monthlySpendingMinorUnits = totalSpent,
-        currency = currentMonthExpenses.firstOrNull()?.currency ?: currency,
+        monthlyTransactionCount = currentMonthSpending.size,
+        currency = summaryCurrency,
         categoryBreakdown = categories,
         recentTransactions = expenses.take(5).map { it.toRecentTransaction() },
+        selectedTransactionId = selectedTransactionId.takeIf { selectedStillExists },
+        transactionFlowScreen = if (selectedStillExists) {
+            transactionFlowScreen
+        } else {
+            TransactionFlowScreen.NONE
+        },
         errorMessage = null
     )
 }
@@ -184,10 +381,23 @@ private fun Expense.toRecentTransaction() = RecentTransaction(
     category = category
 )
 
-private fun categoryColor(category: String): Long = when (category.lowercase()) {
-    "housing" -> 0xFF563994
-    "food" -> 0xFFA7E8C0
-    "transport" -> 0xFFC9B9E3
-    "utilities" -> 0xFF6C627D
-    else -> 0xFF8D7AA8
+internal fun calculateCategoryPercentages(amounts: List<Long>): List<Int> {
+    val positiveAmounts = amounts.map { it.coerceAtLeast(0L) }
+    val total = positiveAmounts.sum()
+    if (total == 0L) return List(amounts.size) { 0 }
+
+    val percentages = positiveAmounts.map { amount ->
+        if (amount == 0L) {
+            0
+        } else {
+            ((amount.toDouble() / total) * 100.0).roundToInt().coerceAtLeast(1)
+        }
+    }.toMutableList()
+    val adjustment = 100 - percentages.sum()
+    if (adjustment != 0) {
+        val largestCategoryIndex = positiveAmounts.indices.maxBy { positiveAmounts[it] }
+        percentages[largestCategoryIndex] =
+            (percentages[largestCategoryIndex] + adjustment).coerceAtLeast(0)
+    }
+    return percentages
 }

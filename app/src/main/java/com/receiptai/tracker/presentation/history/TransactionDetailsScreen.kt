@@ -2,6 +2,7 @@
 
 package com.receiptai.tracker.presentation.history
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,16 +26,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -64,16 +62,12 @@ import androidx.compose.ui.unit.dp
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
-import com.receiptai.tracker.ui.theme.ReceiptAIMint
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
-import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.pow
+import com.receiptai.tracker.presentation.components.categoryVisualStyle
+import com.receiptai.tracker.presentation.components.formatMoney
 
 private val DeleteRed = Color(0xFFC62828)
 private val IncomeGreen = Color(0xFF2E7D52)
@@ -101,6 +95,8 @@ fun TransactionDetailsScreen(
     modifier: Modifier = Modifier
 ) {
     var isDeleteDialogVisible by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(onBack = onBack)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -175,6 +171,7 @@ fun TransactionDetailsScreen(
 
 @Composable
 private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
+    val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -191,13 +188,13 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(ReceiptAIDeepPurple),
+                    .background(categoryStyle.container),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = transactionIcon(transaction.category),
+                    imageVector = categoryStyle.icon,
                     contentDescription = null,
-                    tint = ReceiptAISurface,
+                    tint = categoryStyle.accent,
                     modifier = Modifier.size(30.dp)
                 )
             }
@@ -210,10 +207,10 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = formatTransactionAmount(
+                text = formatMoney(
                     amountMinorUnits = transaction.amountMinorUnits,
                     currencyCode = transaction.currency,
-                    includeSign = true
+                    includePositiveSign = true
                 ),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
@@ -238,6 +235,7 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
 
 @Composable
 private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
+    val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -263,9 +261,11 @@ private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
                 value = transaction.account.ifBlank { "Not specified" }
             )
             DetailRow(
-                icon = Icons.Default.Category,
+                icon = categoryStyle.icon,
                 label = "Category",
-                value = transaction.category.ifBlank { "Uncategorized" }
+                value = transaction.category.ifBlank { "Uncategorized" },
+                iconTint = categoryStyle.accent,
+                iconContainerColor = categoryStyle.container
             )
             NotesRow(notes = transaction.notes)
             ReceiptPlaceholder()
@@ -277,7 +277,9 @@ private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
 private fun DetailRow(
     icon: ImageVector,
     label: String,
-    value: String
+    value: String,
+    iconTint: Color = ReceiptAIDeepPurple,
+    iconContainerColor: Color = ReceiptAIDeepPurple.copy(alpha = 0.10f)
 ) {
     Row(
         modifier = Modifier
@@ -285,7 +287,11 @@ private fun DetailRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DetailIcon(icon = icon)
+        DetailIcon(
+            icon = icon,
+            tint = iconTint,
+            containerColor = iconContainerColor
+        )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = label,
@@ -377,18 +383,22 @@ private fun ReceiptPlaceholder() {
 }
 
 @Composable
-private fun DetailIcon(icon: ImageVector) {
+private fun DetailIcon(
+    icon: ImageVector,
+    tint: Color = ReceiptAIDeepPurple,
+    containerColor: Color = ReceiptAIDeepPurple.copy(alpha = 0.10f)
+) {
     Box(
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(ReceiptAIDeepPurple.copy(alpha = 0.10f)),
+            .background(containerColor),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = ReceiptAIDeepPurple,
+            tint = tint,
             modifier = Modifier.size(19.dp)
         )
     }
@@ -404,10 +414,11 @@ private fun TransactionDetailsActions(
         tonalElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
@@ -446,41 +457,10 @@ private fun TransactionDetailsActions(
     }
 }
 
-private fun transactionIcon(category: String): ImageVector = when {
-    category.contains("food", ignoreCase = true) -> Icons.Default.Storefront
-    category.contains("transport", ignoreCase = true) -> Icons.AutoMirrored.Filled.ReceiptLong
-    else -> Icons.Default.Category
-}
-
 private fun amountColor(amountMinorUnits: Long): Color = when {
     amountMinorUnits < 0L -> DeleteRed
     amountMinorUnits > 0L -> IncomeGreen
     else -> ReceiptAIPrimaryText
-}
-
-private fun formatTransactionAmount(
-    amountMinorUnits: Long,
-    currencyCode: String,
-    includeSign: Boolean
-): String {
-    val currency = runCatching { Currency.getInstance(currencyCode) }
-        .getOrDefault(Currency.getInstance("USD"))
-    val fractionDigits = currency.defaultFractionDigits.coerceAtLeast(0)
-    val amount = NumberFormat.getCurrencyInstance(Locale.US).apply {
-        this.currency = currency
-        maximumFractionDigits = fractionDigits
-        minimumFractionDigits = fractionDigits
-    }.format(abs(amountMinorUnits) / 10.0.pow(fractionDigits))
-
-    return if (!includeSign) {
-        amount
-    } else if (amountMinorUnits < 0L) {
-        "-$amount"
-    } else if (amountMinorUnits > 0L) {
-        "+$amount"
-    } else {
-        amount
-    }
 }
 
 private val PreviewTransactionDetails = TransactionDetailsUiState(

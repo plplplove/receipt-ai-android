@@ -22,12 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,12 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.receiptai.tracker.presentation.dashboard.DashboardDestination
+import com.receiptai.tracker.presentation.components.categoryVisualStyle
+import com.receiptai.tracker.presentation.components.formatMoney
 import com.receiptai.tracker.presentation.navigation.AppSectionHeader
 import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
@@ -62,11 +58,6 @@ import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
-import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.pow
 
 private val HistoryBackground = ReceiptAIBackground
 private val SearchBackground = Color(0xFFF0EEF3)
@@ -82,11 +73,12 @@ data class HistoryTransaction(
 
 @Composable
 fun TransactionHistoryScreen(
+    modifier: Modifier = Modifier,
     transactions: List<HistoryTransaction> = emptyList(),
     onDestinationSelected: (DashboardDestination) -> Unit = {},
     onAddExpenseClick: () -> Unit = {},
     onFilterClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onTransactionClick: (HistoryTransaction) -> Unit = {}
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var isFilterSheetVisible by rememberSaveable { mutableStateOf(false) }
@@ -154,7 +146,10 @@ fun TransactionHistoryScreen(
                         items = groupTransactions,
                         key = { transaction -> transaction.id }
                     ) { transaction ->
-                        HistoryTransactionCard(transaction = transaction)
+                        HistoryTransactionCard(
+                            transaction = transaction,
+                            onClick = { onTransactionClick(transaction) }
+                        )
                     }
                 }
             }
@@ -238,8 +233,11 @@ private fun HistorySearchBar(
 }
 
 @Composable
-private fun HistoryTransactionCard(transaction: HistoryTransaction) {
-    val iconStyle = transactionIconStyle(transaction.category)
+private fun HistoryTransactionCard(
+    transaction: HistoryTransaction,
+    onClick: () -> Unit
+) {
+    val iconStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -251,7 +249,7 @@ private fun HistoryTransactionCard(transaction: HistoryTransaction) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { }
+                .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -259,13 +257,13 @@ private fun HistoryTransactionCard(transaction: HistoryTransaction) {
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(iconStyle.background),
+                    .background(iconStyle.container),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = iconStyle.icon,
                     contentDescription = null,
-                    tint = iconStyle.tint,
+                    tint = iconStyle.accent,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -285,9 +283,10 @@ private fun HistoryTransactionCard(transaction: HistoryTransaction) {
                 )
             }
             Text(
-                text = formatHistoryAmount(
+                text = formatMoney(
                     transaction.amountMinorUnits,
-                    transaction.currency
+                    transaction.currency,
+                    includePositiveSign = true
                 ),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
@@ -299,52 +298,6 @@ private fun HistoryTransactionCard(transaction: HistoryTransaction) {
             )
         }
     }
-}
-
-private data class TransactionIconStyle(
-    val icon: ImageVector,
-    val background: Color,
-    val tint: Color
-)
-
-private fun transactionIconStyle(category: String): TransactionIconStyle = when {
-    category.contains("food", ignoreCase = true) -> TransactionIconStyle(
-        icon = Icons.Default.LocalCafe,
-        background = Color(0xFFE2F6EF),
-        tint = Color(0xFF008F7A)
-    )
-    category.contains("transport", ignoreCase = true) -> TransactionIconStyle(
-        icon = Icons.Default.DirectionsCar,
-        background = Color(0xFFF0EBF8),
-        tint = ReceiptAIDeepPurple
-    )
-    category.contains("shopping", ignoreCase = true) -> TransactionIconStyle(
-        icon = Icons.Default.ShoppingBag,
-        background = Color(0xFFEDE7F6),
-        tint = ReceiptAIDeepPurple
-    )
-    category.contains("health", ignoreCase = true) -> TransactionIconStyle(
-        icon = Icons.Default.Favorite,
-        background = Color(0xFFE4F4EC),
-        tint = Color(0xFF2E7D52)
-    )
-    else -> TransactionIconStyle(
-        icon = Icons.AutoMirrored.Filled.ReceiptLong,
-        background = Color(0xFFF0EEF3),
-        tint = ReceiptAIDeepPurple
-    )
-}
-
-private fun formatHistoryAmount(amountMinorUnits: Long, currencyCode: String): String {
-    val currency = runCatching { Currency.getInstance(currencyCode) }
-        .getOrDefault(Currency.getInstance("USD"))
-    val fractionDigits = currency.defaultFractionDigits.coerceAtLeast(0)
-    val amount = NumberFormat.getCurrencyInstance(Locale.US).apply {
-        this.currency = currency
-        maximumFractionDigits = fractionDigits
-        minimumFractionDigits = fractionDigits
-    }.format(abs(amountMinorUnits) / 10.0.pow(fractionDigits))
-    return if (amountMinorUnits < 0) "-$amount" else "+$amount"
 }
 
 private fun HistoryTransaction.matches(filters: TransactionFilterState): Boolean {

@@ -4,6 +4,7 @@ package com.receiptai.tracker.presentation.expense
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -32,6 +34,8 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -53,6 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -76,14 +81,20 @@ import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
-import java.math.BigDecimal
+import com.receiptai.tracker.presentation.components.parsePositiveAmount
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 enum class AddEditTransactionMode {
     ADD_EXPENSE,
-    CONFIRM_DETAILS
+    CONFIRM_DETAILS,
+    EDIT_EXPENSE
+}
+
+enum class TransactionType {
+    EXPENSE,
+    INCOME
 }
 
 data class AddEditTransactionUiState(
@@ -93,7 +104,8 @@ data class AddEditTransactionUiState(
     val dateMillis: Long? = null,
     val currencyCode: String = "",
     val category: String = "",
-    val notes: String = ""
+    val notes: String = "",
+    val transactionType: TransactionType = TransactionType.EXPENSE
 )
 
 data class TransactionCurrencyOption(
@@ -128,18 +140,20 @@ private val DefaultTransactionCurrencies = listOf(
 )
 
 private val ValidationRed = Color(0xFFC62828)
+private val IncomeGreen = Color(0xFF2E7D52)
 
 @Composable
 fun AddEditTransactionScreen(
     state: AddEditTransactionUiState,
-    mode: AddEditTransactionMode = AddEditTransactionMode.ADD_EXPENSE,
-    categories: List<String> = DefaultTransactionCategories,
-    currencies: List<TransactionCurrencyOption> = DefaultTransactionCurrencies,
     onBack: () -> Unit,
     onStateChange: (AddEditTransactionUiState) -> Unit,
     onConfirmSave: (AddEditTransactionUiState) -> Unit,
-    onDateClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mode: AddEditTransactionMode = AddEditTransactionMode.ADD_EXPENSE,
+    categories: List<String> = DefaultTransactionCategories,
+    currencies: List<TransactionCurrencyOption> = DefaultTransactionCurrencies,
+    isSaving: Boolean = false,
+    onDateClick: () -> Unit = {}
 ) {
     var isCategoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isCurrencyMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -150,10 +164,12 @@ fun AddEditTransactionScreen(
     val title = when (mode) {
         AddEditTransactionMode.ADD_EXPENSE -> "Add Expense"
         AddEditTransactionMode.CONFIRM_DETAILS -> "Confirm Details"
+        AddEditTransactionMode.EDIT_EXPENSE -> "Edit Expense"
     }
     val secondaryActionLabel = when (mode) {
         AddEditTransactionMode.ADD_EXPENSE -> "Cancel"
         AddEditTransactionMode.CONFIRM_DETAILS -> "Retake Photo"
+        AddEditTransactionMode.EDIT_EXPENSE -> "Cancel"
     }
     val isFormValid = state.isFormValid()
     val hasAmountError = amountHasBeenEdited && !state.isAmountValid()
@@ -209,6 +225,7 @@ fun AddEditTransactionScreen(
             AddEditActions(
                 secondaryLabel = secondaryActionLabel,
                 isFormValid = isFormValid,
+                isSaving = isSaving,
                 validationMessage = validationMessage,
                 hasAmountError = hasAmountError,
                 onConfirmClick = { onConfirmSave(state) },
@@ -338,6 +355,12 @@ private fun TransactionFormCard(
                 shape = RoundedCornerShape(14.dp),
                 colors = transactionFieldColors()
             )
+            TransactionTypeSelector(
+                selectedType = state.transactionType,
+                onTypeSelected = { type ->
+                    onStateChange(state.copy(transactionType = type))
+                }
+            )
             ReadOnlyPickerField(
                 value = state.dateText,
                 label = "Date *",
@@ -392,6 +415,96 @@ private fun TransactionFormCard(
 }
 
 @Composable
+private fun TransactionTypeSelector(
+    selectedType: TransactionType,
+    onTypeSelected: (TransactionType) -> Unit
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Transaction type *",
+            style = MaterialTheme.typography.labelLarge,
+            color = ReceiptAISecondaryText
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(shape)
+                .border(
+                    width = 1.dp,
+                    color = ReceiptAISecondaryText.copy(alpha = 0.35f),
+                    shape = shape
+                )
+        ) {
+            TransactionTypeOption(
+                type = TransactionType.EXPENSE,
+                selected = selectedType == TransactionType.EXPENSE,
+                onClick = { onTypeSelected(TransactionType.EXPENSE) },
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = 1.dp, max = 1.dp)
+                    .background(ReceiptAISecondaryText.copy(alpha = 0.18f))
+            )
+            TransactionTypeOption(
+                type = TransactionType.INCOME,
+                selected = selectedType == TransactionType.INCOME,
+                onClick = { onTypeSelected(TransactionType.INCOME) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransactionTypeOption(
+    type: TransactionType,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isIncome = type == TransactionType.INCOME
+    val accent = if (isIncome) IncomeGreen else ValidationRed
+    val selectedBackground = if (isIncome) {
+        Color(0xFFE1F7F0)
+    } else {
+        Color(0xFFFDEBEC)
+    }
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(if (selected) selectedBackground else ReceiptAISurface)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = if (isIncome) {
+                    Icons.Default.ArrowUpward
+                } else {
+                    Icons.Default.ArrowDownward
+                },
+                contentDescription = null,
+                tint = if (selected) accent else ReceiptAISecondaryText,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = if (isIncome) "Income" else "Expense",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) accent else ReceiptAISecondaryText
+            )
+        }
+    }
+}
+
+@Composable
 private fun ReadOnlyPickerField(
     value: String,
     label: String,
@@ -399,6 +512,8 @@ private fun ReadOnlyPickerField(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val fieldShape = RoundedCornerShape(14.dp)
+
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = value,
@@ -415,12 +530,13 @@ private fun ReadOnlyPickerField(
                 )
             },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            shape = fieldShape,
             colors = transactionFieldColors()
         )
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .clip(fieldShape)
                 .clickable(onClick = onClick)
         )
     }
@@ -502,6 +618,7 @@ private fun CustomDropdownField(
 private fun AddEditActions(
     secondaryLabel: String,
     isFormValid: Boolean,
+    isSaving: Boolean,
     validationMessage: String?,
     hasAmountError: Boolean,
     onConfirmClick: () -> Unit,
@@ -535,7 +652,7 @@ private fun AddEditActions(
             }
             Button(
                 onClick = onConfirmClick,
-                enabled = isFormValid,
+                enabled = isFormValid && !isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -550,7 +667,7 @@ private fun AddEditActions(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Confirm & Save")
+                Text(if (isSaving) "Saving…" else "Confirm & Save")
             }
             OutlinedButton(
                 onClick = onSecondaryClick,
@@ -587,10 +704,10 @@ private fun CustomCalendarDialog(
     onDateSelected: (Long) -> Unit
 ) {
     var selectedDateMillis by rememberSaveable(initialDateMillis) {
-        mutableStateOf(startOfDay(initialDateMillis))
+        mutableLongStateOf(startOfDay(initialDateMillis))
     }
     var displayedMonthMillis by rememberSaveable(initialDateMillis) {
-        mutableStateOf(startOfMonth(initialDateMillis))
+        mutableLongStateOf(startOfMonth(initialDateMillis))
     }
     val displayedMonth = calendarOf(displayedMonthMillis)
     val daysInMonth = displayedMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
@@ -754,7 +871,7 @@ private fun AddEditTransactionUiState.isFormValid(): Boolean =
         category.isNotBlank()
 
 private fun AddEditTransactionUiState.isAmountValid(): Boolean =
-    totalAmount.toBigDecimalOrNull()?.compareTo(BigDecimal.ZERO) == 1
+    parsePositiveAmount(totalAmount) != null
 
 private fun AddEditTransactionUiState.missingRequiredFields(): List<String> = buildList {
     if (merchantName.isBlank()) add("Merchant Name")

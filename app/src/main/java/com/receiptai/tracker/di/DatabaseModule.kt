@@ -22,7 +22,12 @@ object DatabaseModule {
         context,
         ReceiptAIDatabase::class.java,
         "receiptai.db"
-    ).build()
+    )
+        .addMigrations(
+            ReceiptAIDatabase.MIGRATION_1_2,
+            ReceiptAIDatabase.MIGRATION_2_3
+        )
+        .build()
 
     @Provides
     fun provideExpenseDao(database: ReceiptAIDatabase): ExpenseDao = database.expenseDao()

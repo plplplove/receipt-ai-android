@@ -66,7 +66,16 @@ fun TransactionFilterBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var filters by remember(initialFilters) { mutableStateOf(initialFilters) }
-    val categories = listOf("All", "Food & Dining", "Transport", "Shopping", "Health")
+    val categories = listOf(
+        "All",
+        "Food & Dining",
+        "Transport",
+        "Shopping",
+        "Health",
+        "Housing",
+        "Utilities",
+        "Other"
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,

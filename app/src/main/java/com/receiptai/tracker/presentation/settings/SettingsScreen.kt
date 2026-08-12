@@ -33,9 +33,9 @@ import com.receiptai.tracker.ui.theme.ReceiptAISurface
 
 @Composable
 fun SettingsScreen(
+    modifier: Modifier = Modifier,
     onDestinationSelected: (DashboardDestination) -> Unit = {},
-    onAddExpenseClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onAddExpenseClick: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),

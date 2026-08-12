@@ -29,7 +29,8 @@ private fun ExpenseEntity.toDomain() = Expense(
     amountMinorUnits = amountMinorUnits,
     currency = currency,
     dateTimestamp = dateTimestamp,
-    category = category
+    category = category,
+    notes = notes
 )
 
 private fun Expense.toEntity() = ExpenseEntity(
@@ -38,5 +39,6 @@ private fun Expense.toEntity() = ExpenseEntity(
     amountMinorUnits = amountMinorUnits,
     currency = currency,
     dateTimestamp = dateTimestamp,
-    category = category
+    category = category,
+    notes = notes
 )

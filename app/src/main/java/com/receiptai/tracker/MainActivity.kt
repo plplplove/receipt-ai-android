@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.presentation.dashboard.DashboardRoute
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
@@ -23,17 +25,21 @@ class MainActivity : ComponentActivity() {
                 darkScrim = ReceiptAIBackground.toArgb()
             ),
             navigationBarStyle = SystemBarStyle.light(
-                scrim = Color.White.toArgb(),
-                darkScrim = Color.White.toArgb()
+                scrim = ReceiptAIBackground.toArgb(),
+                darkScrim = ReceiptAIBackground.toArgb()
             )
         )
-        // Keep the system bars on the same surface on Android versions that
-        // still honor explicit window bar colors.
-        window.statusBarColor = ReceiptAIBackground.toArgb()
-        window.navigationBarColor = Color.White.toArgb()
         setContent {
-            ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
-                DashboardRoute(viewModel = hiltViewModel())
+            ReceiptAIExpenseBudgetTrackerTheme(
+                darkTheme = false,
+                dynamicColor = false
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = ReceiptAIBackground
+                ) {
+                    DashboardRoute(viewModel = hiltViewModel())
+                }
             }
         }
     }
