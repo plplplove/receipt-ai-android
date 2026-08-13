@@ -77,11 +77,15 @@ import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIMint
+import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
 import com.receiptai.tracker.presentation.components.parsePositiveAmount
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
+import com.receiptai.tracker.presentation.localization.ReceiptAIStrings
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -161,25 +165,26 @@ fun AddEditTransactionScreen(
     var isDiscardDialogVisible by rememberSaveable { mutableStateOf(false) }
     var amountHasBeenEdited by rememberSaveable { mutableStateOf(state.totalAmount.isNotBlank()) }
     val initialState = androidx.compose.runtime.remember { state }
+    val strings = receiptAIStrings()
     val title = when (mode) {
-        AddEditTransactionMode.ADD_EXPENSE -> "Add Expense"
-        AddEditTransactionMode.CONFIRM_DETAILS -> "Confirm Details"
-        AddEditTransactionMode.EDIT_EXPENSE -> "Edit Expense"
+        AddEditTransactionMode.ADD_EXPENSE -> strings.addExpense
+        AddEditTransactionMode.CONFIRM_DETAILS -> strings.confirmDetails
+        AddEditTransactionMode.EDIT_EXPENSE -> strings.editExpense
     }
     val secondaryActionLabel = when (mode) {
-        AddEditTransactionMode.ADD_EXPENSE -> "Cancel"
-        AddEditTransactionMode.CONFIRM_DETAILS -> "Retake Photo"
-        AddEditTransactionMode.EDIT_EXPENSE -> "Cancel"
+        AddEditTransactionMode.ADD_EXPENSE -> strings.cancel
+        AddEditTransactionMode.CONFIRM_DETAILS -> strings.retakePhoto
+        AddEditTransactionMode.EDIT_EXPENSE -> strings.cancel
     }
     val isFormValid = state.isFormValid()
     val hasAmountError = amountHasBeenEdited && !state.isAmountValid()
-    val missingRequiredFields = state.missingRequiredFields()
+    val missingRequiredFields = state.missingRequiredFields(strings)
     val validationMessage = when {
         hasAmountError -> {
-            "Enter a valid positive amount, for example 14.50."
+            strings.enterPositiveAmount
         }
         missingRequiredFields.isNotEmpty() -> {
-            "Required: ${missingRequiredFields.joinToString()}."
+            strings.requiredFields(missingRequiredFields.joinToString())
         }
         else -> null
     }
@@ -198,28 +203,34 @@ fun AddEditTransactionScreen(
         containerColor = ReceiptAIBackground,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                modifier = Modifier.statusBarsPadding(),
-                title = {
-                    Text(
-                        text = title,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = requestExit) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = ReceiptAIPrimaryText
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ReceiptAIBackground)
+                    .statusBarsPadding()
+            ) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = title,
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ReceiptAIBackground,
-                    titleContentColor = ReceiptAIPrimaryText
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = requestExit) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = strings.details,
+                                tint = ReceiptAIPrimaryText
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = ReceiptAIBackground,
+                        titleContentColor = ReceiptAIPrimaryText
+                    )
                 )
-            )
+            }
         },
         bottomBar = {
             AddEditActions(
@@ -287,10 +298,10 @@ fun AddEditTransactionScreen(
 
     if (isDiscardDialogVisible) {
         ReceiptAIConfirmationDialog(
-            title = "Discard changes?",
-            message = "Your changes will not be saved. Are you sure you want to exit?",
-            confirmLabel = "Exit",
-            dismissLabel = "Stay",
+            title = strings.discardChangesTitle,
+            message = strings.discardChangesMessage,
+            confirmLabel = strings.discard,
+            dismissLabel = strings.stay,
             onConfirm = {
                 isDiscardDialogVisible = false
                 onBack()
@@ -315,6 +326,7 @@ private fun TransactionFormCard(
     onAmountEdited: () -> Unit,
     onStateChange: (AddEditTransactionUiState) -> Unit
 ) {
+    val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -329,7 +341,7 @@ private fun TransactionFormCard(
                 value = state.merchantName,
                 onValueChange = { onStateChange(state.copy(merchantName = it)) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Merchant Name *") },
+                label = { Text(strings.merchantNameRequired) },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = transactionFieldColors()
@@ -342,11 +354,11 @@ private fun TransactionFormCard(
                     onStateChange(state.copy(totalAmount = it))
                 },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Total Amount *") },
+                label = { Text(strings.totalAmountRequired) },
                 prefix = { Text(currencySymbol(state.currencyCode)) },
                 isError = amountError,
                 supportingText = if (amountError) {
-                    { Text("Enter a positive number, e.g. 14.50.") }
+                    { Text(strings.enterPositiveAmount) }
                 } else {
                     null
                 },
@@ -363,18 +375,21 @@ private fun TransactionFormCard(
             )
             ReadOnlyPickerField(
                 value = state.dateText,
-                label = "Date *",
-                placeholder = "Select date",
+                label = strings.dateRequired,
+                placeholder = strings.chooseDate,
                 icon = Icons.Default.CalendarMonth,
                 onClick = onDateClick
             )
             CustomDropdownField(
-                value = state.category,
-                label = "Category *",
-                placeholder = "Select category",
+                value = state.category.ifBlank { "" }.let(strings.categoryLabel),
+                label = strings.categoryRequired,
+                placeholder = strings.selectCategory,
                 leadingIcon = categoryLeadingIcon,
                 options = categories.map { category ->
-                    TransactionDropdownOption(value = category, label = category)
+                    TransactionDropdownOption(
+                        value = category,
+                        label = strings.categoryLabel(category)
+                    )
                 },
                 expanded = isCategoryMenuExpanded,
                 onExpandedChange = onCategoryMenuExpandedChange,
@@ -384,12 +399,12 @@ private fun TransactionFormCard(
             )
             CustomDropdownField(
                 value = state.currencyCode,
-                label = "Currency *",
-                placeholder = "Select currency",
+                label = strings.currencyRequired,
+                placeholder = strings.selectCurrency,
                 options = currencies.map { currency ->
                     TransactionDropdownOption(
                         value = currency.code,
-                        label = "${currency.code} · ${currency.name}"
+                        label = "${currency.code} · ${strings.currencyName(currency.code)}"
                     )
                 },
                 expanded = isCurrencyMenuExpanded,
@@ -404,7 +419,7 @@ private fun TransactionFormCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 2.dp),
-                label = { Text("Notes (Optional)") },
+                label = { Text(strings.notesOptional) },
                 minLines = 3,
                 maxLines = 5,
                 shape = RoundedCornerShape(14.dp),
@@ -419,10 +434,11 @@ private fun TransactionTypeSelector(
     selectedType: TransactionType,
     onTypeSelected: (TransactionType) -> Unit
 ) {
+    val strings = receiptAIStrings()
     val shape = RoundedCornerShape(14.dp)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Transaction type *",
+            text = strings.transactionTypeRequired,
             style = MaterialTheme.typography.labelLarge,
             color = ReceiptAISecondaryText
         )
@@ -466,12 +482,13 @@ private fun TransactionTypeOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = receiptAIStrings()
     val isIncome = type == TransactionType.INCOME
     val accent = if (isIncome) IncomeGreen else ValidationRed
     val selectedBackground = if (isIncome) {
-        Color(0xFFE1F7F0)
+        ReceiptAIMint.copy(alpha = 0.13f)
     } else {
-        Color(0xFFFDEBEC)
+        ValidationRed.copy(alpha = 0.10f)
     }
     Box(
         modifier = modifier
@@ -495,7 +512,7 @@ private fun TransactionTypeOption(
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = if (isIncome) "Income" else "Expense",
+                text = if (isIncome) strings.income else strings.expense,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = if (selected) accent else ReceiptAISecondaryText
@@ -512,6 +529,7 @@ private fun ReadOnlyPickerField(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     val fieldShape = RoundedCornerShape(14.dp)
 
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -525,7 +543,7 @@ private fun ReadOnlyPickerField(
             trailingIcon = {
                 Icon(
                     imageVector = icon,
-                    contentDescription = "Choose date",
+                    contentDescription = strings.chooseDate,
                     tint = ReceiptAIDeepPurple
                 )
             },
@@ -624,6 +642,7 @@ private fun AddEditActions(
     onConfirmClick: () -> Unit,
     onSecondaryClick: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     Surface(
         modifier = Modifier
             .fillMaxWidth(),
@@ -657,9 +676,9 @@ private fun AddEditActions(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ReceiptAIDeepPurple,
-                    contentColor = ReceiptAISurface,
+                    contentColor = ReceiptAIOnBrand,
                     disabledContainerColor = ReceiptAIDeepPurple.copy(alpha = 0.35f),
-                    disabledContentColor = ReceiptAISurface.copy(alpha = 0.75f)
+                    disabledContentColor = ReceiptAIOnBrand.copy(alpha = 0.75f)
                 )
             ) {
                 Icon(
@@ -667,7 +686,7 @@ private fun AddEditActions(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text(if (isSaving) "Saving…" else "Confirm & Save")
+                Text(if (isSaving) strings.saving else strings.confirmAndSave)
             }
             OutlinedButton(
                 onClick = onSecondaryClick,
@@ -703,6 +722,7 @@ private fun CustomCalendarDialog(
     onDismissRequest: () -> Unit,
     onDateSelected: (Long) -> Unit
 ) {
+    val strings = receiptAIStrings()
     var selectedDateMillis by rememberSaveable(initialDateMillis) {
         mutableLongStateOf(startOfDay(initialDateMillis))
     }
@@ -718,6 +738,7 @@ private fun CustomCalendarDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        ReceiptAISystemBarsEffect()
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -734,7 +755,7 @@ private fun CustomCalendarDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Select date",
+                            text = strings.selectDate,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = ReceiptAIPrimaryText
@@ -748,7 +769,7 @@ private fun CustomCalendarDialog(
                     IconButton(onClick = onDismissRequest) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close calendar",
+                            contentDescription = strings.closeCalendar,
                             tint = ReceiptAISecondaryText
                         )
                     }
@@ -765,7 +786,7 @@ private fun CustomCalendarDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ChevronLeft,
-                            contentDescription = "Previous month",
+                            contentDescription = strings.previousMonth,
                             tint = ReceiptAIDeepPurple
                         )
                     }
@@ -783,7 +804,7 @@ private fun CustomCalendarDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ChevronRight,
-                            contentDescription = "Next month",
+                            contentDescription = strings.nextMonth,
                             tint = ReceiptAIDeepPurple
                         )
                     }
@@ -835,7 +856,7 @@ private fun CustomCalendarDialog(
                                             FontWeight.Normal
                                         },
                                         color = if (isSelected) {
-                                            ReceiptAISurface
+                                            ReceiptAIOnBrand
                                         } else {
                                             ReceiptAIPrimaryText
                                         }
@@ -852,7 +873,7 @@ private fun CustomCalendarDialog(
                 }
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "Tap a day to select it",
+                    text = strings.tapDayToSelect,
                     style = MaterialTheme.typography.bodySmall,
                     color = ReceiptAIMint,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -873,12 +894,14 @@ private fun AddEditTransactionUiState.isFormValid(): Boolean =
 private fun AddEditTransactionUiState.isAmountValid(): Boolean =
     parsePositiveAmount(totalAmount) != null
 
-private fun AddEditTransactionUiState.missingRequiredFields(): List<String> = buildList {
-    if (merchantName.isBlank()) add("Merchant Name")
-    if (!isAmountValid()) add("Total Amount")
-    if (dateText.isBlank() || dateMillis == null) add("Date")
-    if (category.isBlank()) add("Category")
-    if (currencyCode.isBlank()) add("Currency")
+private fun AddEditTransactionUiState.missingRequiredFields(
+    strings: ReceiptAIStrings
+): List<String> = buildList {
+    if (merchantName.isBlank()) add(strings.merchantNameRequired.removeSuffix(" *"))
+    if (!isAmountValid()) add(strings.totalAmountRequired.removeSuffix(" *"))
+    if (dateText.isBlank() || dateMillis == null) add(strings.dateRequired.removeSuffix(" *"))
+    if (category.isBlank()) add(strings.categoryRequired.removeSuffix(" *"))
+    if (currencyCode.isBlank()) add(strings.currencyRequired.removeSuffix(" *"))
 }
 
 private fun currencySymbol(currencyCode: String): String = when (currencyCode) {

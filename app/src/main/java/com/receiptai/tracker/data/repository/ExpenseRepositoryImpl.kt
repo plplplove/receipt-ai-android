@@ -21,6 +21,10 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun deleteExpense(expenseId: String) {
         expenseDao.deleteById(expenseId)
     }
+
+    override suspend fun deleteAllExpenses() {
+        expenseDao.deleteAll()
+    }
 }
 
 private fun ExpenseEntity.toDomain() = Expense(

@@ -1,5 +1,8 @@
 package com.receiptai.tracker.presentation.dashboard
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,18 +42,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.receiptai.tracker.domain.model.Expense
+import com.receiptai.tracker.domain.money.CurrencyConverter
 import com.receiptai.tracker.presentation.analytics.AnalyticsScreen
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
@@ -64,6 +70,10 @@ import com.receiptai.tracker.presentation.history.TransactionHistoryScreen
 import com.receiptai.tracker.presentation.navigation.AppSectionHeader
 import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.presentation.settings.SettingsScreen
+import com.receiptai.tracker.presentation.settings.writeReceiptAiCsv
+import com.receiptai.tracker.presentation.localization.AppLanguage
+import com.receiptai.tracker.presentation.localization.localizedError
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -73,23 +83,61 @@ import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ThemeMode
 
-private val DashboardBackground = ReceiptAIBackground
-private val CardBackground = ReceiptAISurface
+private val DashboardBackground: Color
+    @Composable get() = ReceiptAIBackground
+private val CardBackground: Color
+    @Composable get() = ReceiptAISurface
 private val BrandPurple = ReceiptAIDeepPurple
-private val SecondaryText = ReceiptAISecondaryText
+private val SecondaryText: Color
+    @Composable get() = ReceiptAISecondaryText
 
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    themeMode: ThemeMode = ThemeMode.SYSTEM_DEFAULT,
+    onThemeModeChanged: (ThemeMode) -> Unit = {},
+    displayCurrency: String = "USD",
+    onDisplayCurrencyChanged: (String) -> Unit = {},
+    appLanguage: AppLanguage = AppLanguage.ENGLISH,
+    onLanguageChanged: (AppLanguage) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val strings = receiptAIStrings()
+    val expensesForExport by rememberUpdatedState(state.expenses)
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let { selectedUri ->
+            writeReceiptAiCsv(context, selectedUri, expensesForExport)
+                .onSuccess {
+                    Toast.makeText(
+                        context,
+                        strings.csvExported,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                .onFailure {
+                    Toast.makeText(
+                        context,
+                        strings.csvExportFailed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+        }
+    }
+
+    LaunchedEffect(displayCurrency) {
+        viewModel.onIntent(DashboardIntent.DisplayCurrencyChanged(displayCurrency))
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
+            snackbarHostState.showSnackbar(strings.localizedError(message))
             viewModel.onIntent(DashboardIntent.ErrorDismissed)
         }
     }
@@ -99,7 +147,7 @@ fun DashboardRoute(
             TransactionFlowScreen.DETAILS -> {
                 state.selectedTransaction?.let { transaction ->
                     TransactionDetailsScreen(
-                        transaction = transaction.toDetailsUiState(),
+                        transaction = transaction.toDetailsUiState(state.currency),
                         onBack = {
                             viewModel.onIntent(DashboardIntent.TransactionDetailsDismissed)
                         },
@@ -137,7 +185,9 @@ fun DashboardRoute(
             }
             TransactionFlowScreen.NONE -> when (state.selectedDestination) {
                 DashboardDestination.HISTORY -> TransactionHistoryScreen(
-                    transactions = state.expenses.map(Expense::toHistoryTransaction),
+                    transactions = state.expenses.map {
+                        it.toHistoryTransaction(state.currency)
+                    },
                     onDestinationSelected = { destination ->
                         viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
                     },
@@ -163,11 +213,25 @@ fun DashboardRoute(
                     modifier = Modifier.fillMaxSize()
                 )
                 DashboardDestination.SETTINGS -> SettingsScreen(
+                    themeMode = themeMode,
+                    onThemeModeSelected = onThemeModeChanged,
+                    currencyCode = displayCurrency,
+                    onCurrencySelected = { currencyCode ->
+                        onDisplayCurrencyChanged(currencyCode)
+                    },
+                    appLanguage = appLanguage,
+                    onLanguageSelected = onLanguageChanged,
                     onDestinationSelected = { destination ->
                         viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
                     },
                     onAddExpenseClick = {
                         viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                    },
+                    onDeleteAllData = {
+                        viewModel.onIntent(DashboardIntent.DeleteAllDataConfirmed)
+                    },
+                    onExportData = {
+                        exportLauncher.launch("receiptai_expenses.csv")
                     },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -205,25 +269,37 @@ fun DashboardRoute(
     }
 }
 
-private fun Expense.toHistoryTransaction() = HistoryTransaction(
+private fun Expense.toHistoryTransaction(displayCurrency: String) = HistoryTransaction(
     id = id,
     dateGroup = historyDateGroup(dateTimestamp),
     merchantName = merchantName,
     category = category,
-    amountMinorUnits = amountMinorUnits,
-    currency = currency
+    amountMinorUnits = CurrencyConverter.convertMinorUnits(
+        amountMinorUnits,
+        currency,
+        displayCurrency
+    ),
+    currency = displayCurrency,
+    originalAmountMinorUnits = amountMinorUnits,
+    originalCurrency = currency
 )
 
-private fun Expense.toDetailsUiState() = TransactionDetailsUiState(
+private fun Expense.toDetailsUiState(displayCurrency: String) = TransactionDetailsUiState(
     id = id,
     merchantName = merchantName,
-    amountMinorUnits = amountMinorUnits,
-    currency = currency,
+    amountMinorUnits = CurrencyConverter.convertMinorUnits(
+        amountMinorUnits,
+        currency,
+        displayCurrency
+    ),
+    currency = displayCurrency,
     dateText = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(dateTimestamp),
     account = "Main account",
     category = category,
     notes = notes,
-    status = "Completed"
+    status = "Completed",
+    originalAmountMinorUnits = amountMinorUnits,
+    originalCurrency = currency
 )
 
 private fun historyDateGroup(timestamp: Long): String {
@@ -288,11 +364,11 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                AppSectionHeader(title = "Home")
+                AppSectionHeader(title = receiptAIStrings().home)
             }
             item {
                 Text(
-                    text = "Welcome back",
+                    text = receiptAIStrings().welcomeBack,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = ReceiptAIPrimaryText
@@ -347,6 +423,7 @@ fun DashboardScreen(
 
 @Composable
 private fun BalanceCard(state: DashboardState) {
+    val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -355,7 +432,7 @@ private fun BalanceCard(state: DashboardState) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Total Balance",
+                text = strings.totalBalance,
                 style = MaterialTheme.typography.labelLarge,
                 color = SecondaryText
             )
@@ -366,6 +443,13 @@ private fun BalanceCard(state: DashboardState) {
                 fontWeight = FontWeight.Bold,
                 color = ReceiptAIPrimaryText
             )
+            if (state.expenses.any { it.currency != state.currency }) {
+                Text(
+                    text = strings.convertedTo(state.currency),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryText
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -376,7 +460,7 @@ private fun BalanceCard(state: DashboardState) {
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Ready for your next expense",
+                    text = strings.readyForNextExpense,
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryText
                 )
@@ -387,6 +471,7 @@ private fun BalanceCard(state: DashboardState) {
 
 @Composable
 private fun MonthlySpendingCard(state: DashboardState) {
+    val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -395,7 +480,7 @@ private fun MonthlySpendingCard(state: DashboardState) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Monthly Spending",
+                text = strings.monthlySpending(state.currency),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = ReceiptAIPrimaryText
@@ -433,6 +518,7 @@ private fun MonthlySpendingCard(state: DashboardState) {
 
 @Composable
 private fun EmptySpendingSummary() {
+    val strings = receiptAIStrings()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -448,7 +534,7 @@ private fun EmptySpendingSummary() {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Your spending insights will appear here",
+                text = strings.spendingInsights,
                 style = MaterialTheme.typography.bodyMedium,
                 color = SecondaryText
             )
@@ -462,6 +548,7 @@ private fun SpendingDonut(
     categories: List<CategorySpend>,
     modifier: Modifier = Modifier
 ) {
+    val strings = receiptAIStrings()
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
             var startAngle = -90f
@@ -479,7 +566,7 @@ private fun SpendingDonut(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Total Spent",
+                text = strings.totalSpent,
                 style = MaterialTheme.typography.labelSmall,
                 color = SecondaryText
             )
@@ -495,6 +582,7 @@ private fun SpendingDonut(
 
 @Composable
 private fun CategoryLegend(category: CategorySpend) {
+    val strings = receiptAIStrings()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
@@ -504,9 +592,9 @@ private fun CategoryLegend(category: CategorySpend) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = category.name,
+            text = strings.categoryLabel(category.name),
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF353239),
+            color = ReceiptAIPrimaryText,
             modifier = Modifier.weight(1f)
         )
         Text(
@@ -520,19 +608,20 @@ private fun CategoryLegend(category: CategorySpend) {
 
 @Composable
 private fun RecentTransactionsHeader(onSeeAllClick: () -> Unit) {
+    val strings = receiptAIStrings()
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Recent Transactions",
+            text = strings.recentTransactions,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = ReceiptAIPrimaryText,
             modifier = Modifier.weight(1f)
         )
         Text(
-            text = "See All",
+            text = strings.seeAll,
             style = MaterialTheme.typography.labelLarge,
             color = BrandPurple,
             modifier = Modifier
@@ -548,6 +637,7 @@ private fun TransactionCard(
     transaction: RecentTransaction,
     onClick: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
         onClick = onClick,
@@ -575,7 +665,7 @@ private fun TransactionCard(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text(
-                        text = transaction.category,
+                        text = strings.categoryLabel(transaction.category),
                         style = MaterialTheme.typography.labelSmall,
                         color = categoryStyle.accent,
                         fontWeight = FontWeight.Medium,
@@ -583,20 +673,33 @@ private fun TransactionCard(
                     )
                 }
             }
-            Text(
-                text = formatMoney(
-                    transaction.amountMinorUnits,
-                    transaction.currency,
-                    includePositiveSign = true
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (transaction.amountMinorUnits < 0L) {
-                    Color(0xFFC62828)
-                } else {
-                    Color(0xFF2E7D52)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatMoney(
+                        transaction.amountMinorUnits,
+                        transaction.currency,
+                        includePositiveSign = true
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (transaction.amountMinorUnits < 0L) {
+                        Color(0xFFC62828)
+                    } else {
+                        Color(0xFF2E7D52)
+                    }
+                )
+                if (transaction.originalCurrency != transaction.currency) {
+                    Text(
+                        text = formatMoney(
+                            transaction.originalAmountMinorUnits,
+                            transaction.originalCurrency,
+                            includePositiveSign = true
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryText.copy(alpha = 0.68f)
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -622,6 +725,7 @@ private fun TransactionIcon(category: String) {
 
 @Composable
 private fun EmptyTransactionsCard() {
+    val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -641,12 +745,12 @@ private fun EmptyTransactionsCard() {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "No transactions yet",
+                text = strings.noTransactions,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Tap + to add your first expense.",
+                text = strings.tapToAddFirstExpense,
                 style = MaterialTheme.typography.bodySmall,
                 color = SecondaryText
             )

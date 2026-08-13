@@ -9,4 +9,6 @@ interface ExpenseRepository {
     suspend fun saveExpense(expense: Expense)
 
     suspend fun deleteExpense(expenseId: String)
+
+    suspend fun deleteAllExpenses()
 }

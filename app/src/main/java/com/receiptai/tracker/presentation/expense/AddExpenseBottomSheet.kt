@@ -3,6 +3,7 @@
 package com.receiptai.tracker.presentation.expense
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,13 +38,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
-import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIMint
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
+import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 
 @Composable
 fun AddExpenseBottomSheet(
@@ -51,6 +53,7 @@ fun AddExpenseBottomSheet(
     onScanReceipt: () -> Unit,
     onAddManually: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -60,6 +63,10 @@ fun AddExpenseBottomSheet(
         contentColor = ReceiptAIPrimaryText,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
+        ReceiptAISystemBarsEffect(
+            statusBarColor = ReceiptAIBackground,
+            navigationBarColor = ReceiptAISurface
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -72,31 +79,31 @@ fun AddExpenseBottomSheet(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Add Expense",
+                    text = strings.addExpense,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = ReceiptAIDeepPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Choose how you want to log your expense.",
+                    text = strings.addExpenseSubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReceiptAISecondaryText
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 ExpenseOptionCard(
-                    title = "Scan Receipt",
+                    title = strings.scanReceipt,
                     icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     iconTint = ReceiptAIMint,
-                    iconBackground = Color(0xFFD7F8E8),
+                    iconBackground = ReceiptAIMint.copy(alpha = 0.20f),
                     onClick = onScanReceipt
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 ExpenseOptionCard(
-                    title = "Add Manually",
+                    title = strings.addManually,
                     icon = Icons.Default.Edit,
-                    iconTint = ReceiptAIDeepPurple,
-                    iconBackground = Color(0xFFEDE7F6),
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    iconBackground = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                     onClick = onAddManually
                 )
             }
@@ -106,7 +113,7 @@ fun AddExpenseBottomSheet(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Close add expense sheet",
+                contentDescription = strings.closeAddExpense,
                     tint = ReceiptAISecondaryText
                 )
             }
@@ -127,10 +134,17 @@ private fun ExpenseOptionCard(
         modifier = Modifier
             .fillMaxWidth()
             .height(154.dp)
-            .shadow(3.dp, RoundedCornerShape(18.dp)),
+            .shadow(3.dp, RoundedCornerShape(18.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(18.dp)
+            ),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFCFBFD)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -155,7 +169,7 @@ private fun ExpenseOptionCard(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = ReceiptAIDeepPurple
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }

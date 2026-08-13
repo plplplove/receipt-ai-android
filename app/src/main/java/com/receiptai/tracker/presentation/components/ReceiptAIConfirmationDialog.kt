@@ -35,9 +35,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
+import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
 
 @Composable
 fun ReceiptAIConfirmationDialog(
@@ -54,6 +56,7 @@ fun ReceiptAIConfirmationDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        ReceiptAISystemBarsEffect()
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -111,7 +114,7 @@ fun ReceiptAIConfirmationDialog(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ReceiptAIDeepPurple,
-                            contentColor = ReceiptAISurface
+                            contentColor = ReceiptAIOnBrand
                         )
                     ) {
                         Text(dismissLabel)

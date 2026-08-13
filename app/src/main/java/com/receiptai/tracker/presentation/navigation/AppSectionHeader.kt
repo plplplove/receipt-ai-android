@@ -19,8 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
-
 @Composable
 fun AppSectionHeader(
     title: String,
@@ -31,16 +29,16 @@ fun AppSectionHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(ReceiptAIDeepPurple.copy(alpha = 0.12f)),
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.AccountBalanceWallet,
                 contentDescription = null,
-                tint = ReceiptAIDeepPurple,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -49,7 +47,7 @@ fun AppSectionHeader(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = ReceiptAIDeepPurple
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }

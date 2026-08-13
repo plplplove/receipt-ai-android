@@ -28,7 +28,9 @@ data class RecentTransaction(
     val merchantName: String,
     val amountMinorUnits: Long,
     val currency: String,
-    val category: String
+    val category: String,
+    val originalAmountMinorUnits: Long = amountMinorUnits,
+    val originalCurrency: String = currency
 )
 
 data class DashboardState(
@@ -65,6 +67,8 @@ sealed interface DashboardIntent {
     data object SaveTransactionClicked : DashboardIntent
     data object AddEditTransactionDismissed : DashboardIntent
     data object DeleteTransactionConfirmed : DashboardIntent
+    data object DeleteAllDataConfirmed : DashboardIntent
+    data class DisplayCurrencyChanged(val currencyCode: String) : DashboardIntent
     data class DestinationSelected(val destination: DashboardDestination) : DashboardIntent
     data object ErrorDismissed : DashboardIntent
 }

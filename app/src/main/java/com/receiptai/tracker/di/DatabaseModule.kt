@@ -25,7 +25,8 @@ object DatabaseModule {
     )
         .addMigrations(
             ReceiptAIDatabase.MIGRATION_1_2,
-            ReceiptAIDatabase.MIGRATION_2_3
+            ReceiptAIDatabase.MIGRATION_2_3,
+            ReceiptAIDatabase.MIGRATION_3_4
         )
         .build()
 

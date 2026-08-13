@@ -8,9 +8,12 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 
 enum class ExpenseCategoryKind(val accentArgb: Long) {
     FOOD(0xFF00A88F),
@@ -43,41 +46,79 @@ fun expenseCategoryKind(category: String): ExpenseCategoryKind = when {
 
 fun categoryAccentArgb(category: String): Long = expenseCategoryKind(category).accentArgb
 
-fun categoryVisualStyle(category: String): CategoryVisualStyle =
-    when (expenseCategoryKind(category)) {
-        ExpenseCategoryKind.FOOD -> CategoryVisualStyle(
+@Composable
+fun categoryVisualStyle(category: String): CategoryVisualStyle {
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    return when (expenseCategoryKind(category)) {
+        ExpenseCategoryKind.FOOD -> categoryStyle(
             icon = Icons.Default.Restaurant,
-            accent = Color(ExpenseCategoryKind.FOOD.accentArgb),
-            container = Color(0xFFDDF7F1)
+            lightAccent = Color(ExpenseCategoryKind.FOOD.accentArgb),
+            lightContainer = Color(0xFFDDF7F1),
+            darkAccent = Color(0xFF7BE7D5),
+            darkContainer = Color(0xFF1D3A35),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.TRANSPORT -> CategoryVisualStyle(
+        ExpenseCategoryKind.TRANSPORT -> categoryStyle(
             icon = Icons.Default.DirectionsCar,
-            accent = Color(ExpenseCategoryKind.TRANSPORT.accentArgb),
-            container = Color(0xFFE8EEFF)
+            lightAccent = Color(ExpenseCategoryKind.TRANSPORT.accentArgb),
+            lightContainer = Color(0xFFE8EEFF),
+            darkAccent = Color(0xFFAFC2FF),
+            darkContainer = Color(0xFF27324B),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.SHOPPING -> CategoryVisualStyle(
+        ExpenseCategoryKind.SHOPPING -> categoryStyle(
             icon = Icons.Default.ShoppingBag,
-            accent = Color(ExpenseCategoryKind.SHOPPING.accentArgb),
-            container = Color(0xFFF8E7EF)
+            lightAccent = Color(ExpenseCategoryKind.SHOPPING.accentArgb),
+            lightContainer = Color(0xFFF8E7EF),
+            darkAccent = Color(0xFFFFB6D1),
+            darkContainer = Color(0xFF432936),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.HEALTH -> CategoryVisualStyle(
+        ExpenseCategoryKind.HEALTH -> categoryStyle(
             icon = Icons.Default.Favorite,
-            accent = Color(ExpenseCategoryKind.HEALTH.accentArgb),
-            container = Color(0xFFE2F4E9)
+            lightAccent = Color(ExpenseCategoryKind.HEALTH.accentArgb),
+            lightContainer = Color(0xFFE2F4E9),
+            darkAccent = Color(0xFF9AE7B6),
+            darkContainer = Color(0xFF243A2D),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.HOUSING -> CategoryVisualStyle(
+        ExpenseCategoryKind.HOUSING -> categoryStyle(
             icon = Icons.Default.Home,
-            accent = Color(ExpenseCategoryKind.HOUSING.accentArgb),
-            container = Color(0xFFEFE9FA)
+            lightAccent = Color(ExpenseCategoryKind.HOUSING.accentArgb),
+            lightContainer = Color(0xFFEFE9FA),
+            darkAccent = Color(0xFFD0BCFF),
+            darkContainer = Color(0xFF332A49),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.UTILITIES -> CategoryVisualStyle(
+        ExpenseCategoryKind.UTILITIES -> categoryStyle(
             icon = Icons.Default.Bolt,
-            accent = Color(ExpenseCategoryKind.UTILITIES.accentArgb),
-            container = Color(0xFFFFF0D7)
+            lightAccent = Color(ExpenseCategoryKind.UTILITIES.accentArgb),
+            lightContainer = Color(0xFFFFF0D7),
+            darkAccent = Color(0xFFFFCC8A),
+            darkContainer = Color(0xFF46351F),
+            isDarkTheme = isDarkTheme
         )
-        ExpenseCategoryKind.OTHER -> CategoryVisualStyle(
+        ExpenseCategoryKind.OTHER -> categoryStyle(
             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-            accent = Color(ExpenseCategoryKind.OTHER.accentArgb),
-            container = Color(0xFFEFEDF2)
+            lightAccent = Color(ExpenseCategoryKind.OTHER.accentArgb),
+            lightContainer = Color(0xFFEFEDF2),
+            darkAccent = Color(0xFFD1C7DA),
+            darkContainer = Color(0xFF332F38),
+            isDarkTheme = isDarkTheme
         )
     }
+}
+
+private fun categoryStyle(
+    icon: ImageVector,
+    lightAccent: Color,
+    lightContainer: Color,
+    darkAccent: Color,
+    darkContainer: Color,
+    isDarkTheme: Boolean
+) = CategoryVisualStyle(
+    icon = icon,
+    accent = if (isDarkTheme) darkAccent else lightAccent,
+    container = if (isDarkTheme) darkContainer else lightContainer
+)

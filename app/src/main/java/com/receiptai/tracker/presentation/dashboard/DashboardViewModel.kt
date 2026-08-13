@@ -3,6 +3,7 @@ package com.receiptai.tracker.presentation.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.receiptai.tracker.domain.model.Expense
+import com.receiptai.tracker.domain.money.CurrencyConverter
 import com.receiptai.tracker.domain.repository.ExpenseRepository
 import com.receiptai.tracker.presentation.components.categoryAccentArgb
 import com.receiptai.tracker.presentation.components.parsePositiveAmount
@@ -56,6 +57,8 @@ class DashboardViewModel @Inject constructor(
             DashboardIntent.SaveTransactionClicked -> saveCurrentTransaction()
             DashboardIntent.AddEditTransactionDismissed -> dismissTransactionEditor()
             DashboardIntent.DeleteTransactionConfirmed -> deleteSelectedTransaction()
+            DashboardIntent.DeleteAllDataConfirmed -> deleteAllData()
+            is DashboardIntent.DisplayCurrencyChanged -> changeDisplayCurrency(intent.currencyCode)
             is DashboardIntent.DestinationSelected -> selectDestination(intent.destination)
             DashboardIntent.ErrorDismissed -> {
                 _state.update { it.copy(errorMessage = null) }
@@ -119,6 +122,20 @@ class DashboardViewModel @Inject constructor(
 
     private fun updateTransactionForm(form: AddEditTransactionUiState) {
         _state.update { it.copy(transactionForm = form) }
+    }
+
+    private fun changeDisplayCurrency(currencyCode: String) {
+        val normalizedCurrency = currencyCode.uppercase(Locale.US)
+        _state.update { currentState ->
+            if (currentState.expenses.isEmpty()) {
+                currentState.copy(currency = normalizedCurrency)
+            } else {
+                currentState.fromExpenses(
+                    expenses = currentState.expenses,
+                    displayCurrency = normalizedCurrency
+                )
+            }
+        }
     }
 
     private fun dismissTransactionEditor() {
@@ -237,6 +254,31 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun deleteAllData() {
+        if (_state.value.isSaving) return
+
+        _state.update { it.copy(isSaving = true, errorMessage = null) }
+        viewModelScope.launch {
+            runCatching { expenseRepository.deleteAllExpenses() }
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = null
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    _state.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = throwable.message ?: "Unable to delete data"
+                        )
+                    }
+                }
+        }
+    }
+
     private fun observeExpenses() {
         observationJob?.cancel()
         observationJob = expenseRepository.observeExpenses()
@@ -322,22 +364,27 @@ internal fun signedAmountMinorUnits(
     -absoluteAmountMinorUnits
 }
 
-private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState {
-    val summaryCurrency = expenses.firstOrNull()?.currency ?: currency
-    val expensesInCurrency = expenses.filter { it.currency == summaryCurrency }
+private fun DashboardState.fromExpenses(
+    expenses: List<Expense>,
+    displayCurrency: String = currency
+): DashboardState {
     val currentMonth = Calendar.getInstance().let { calendar ->
         calendar.get(Calendar.YEAR) to calendar.get(Calendar.MONTH)
     }
-    val currentMonthExpenses = expensesInCurrency.filter { expense ->
+    val currentMonthExpenses = expenses.filter { expense ->
         Calendar.getInstance().apply { timeInMillis = expense.dateTimestamp }.let { calendar ->
             calendar.get(Calendar.YEAR) == currentMonth.first &&
                 calendar.get(Calendar.MONTH) == currentMonth.second
         }
     }
     val currentMonthSpending = currentMonthExpenses.filter { it.amountMinorUnits < 0L }
-    val totalSpent = currentMonthSpending.sumOf { abs(it.amountMinorUnits) }
+    val totalSpent = currentMonthSpending.sumOf {
+        abs(it.convertedAmountMinorUnits(displayCurrency))
+    }
     val categoryTotals = currentMonthSpending.groupingBy { it.category }
-        .fold(0L) { total, expense -> total + abs(expense.amountMinorUnits) }
+        .fold(0L) { total, expense ->
+            total + abs(expense.convertedAmountMinorUnits(displayCurrency))
+        }
     val sortedCategoryTotals = categoryTotals.entries
         .sortedByDescending { it.value }
     val categoryPercentages = calculateCategoryPercentages(
@@ -357,12 +404,16 @@ private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState
     return copy(
         isLoading = false,
         expenses = expenses,
-        totalBalanceMinorUnits = expensesInCurrency.sumOf { it.amountMinorUnits },
+        totalBalanceMinorUnits = expenses.sumOf {
+            it.convertedAmountMinorUnits(displayCurrency)
+        },
         monthlySpendingMinorUnits = totalSpent,
         monthlyTransactionCount = currentMonthSpending.size,
-        currency = summaryCurrency,
+        currency = displayCurrency,
         categoryBreakdown = categories,
-        recentTransactions = expenses.take(5).map { it.toRecentTransaction() },
+        recentTransactions = expenses.take(5).map {
+            it.toRecentTransaction(displayCurrency)
+        },
         selectedTransactionId = selectedTransactionId.takeIf { selectedStillExists },
         transactionFlowScreen = if (selectedStillExists) {
             transactionFlowScreen
@@ -373,13 +424,22 @@ private fun DashboardState.fromExpenses(expenses: List<Expense>): DashboardState
     )
 }
 
-private fun Expense.toRecentTransaction() = RecentTransaction(
+private fun Expense.toRecentTransaction(displayCurrency: String) = RecentTransaction(
     id = id,
     merchantName = merchantName,
-    amountMinorUnits = amountMinorUnits,
-    currency = currency,
-    category = category
+    amountMinorUnits = convertedAmountMinorUnits(displayCurrency),
+    currency = displayCurrency,
+    category = category,
+    originalAmountMinorUnits = amountMinorUnits,
+    originalCurrency = currency
 )
+
+private fun Expense.convertedAmountMinorUnits(displayCurrency: String): Long =
+    CurrencyConverter.convertMinorUnits(
+        amountMinorUnits = amountMinorUnits,
+        fromCurrency = currency,
+        toCurrency = displayCurrency
+    )
 
 internal fun calculateCategoryPercentages(amounts: List<Long>): List<Int> {
     val positiveAmounts = amounts.map { it.coerceAtLeast(0L) }

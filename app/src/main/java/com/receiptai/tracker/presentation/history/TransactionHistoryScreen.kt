@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.receiptai.tracker.presentation.dashboard.DashboardDestination
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 import com.receiptai.tracker.presentation.navigation.AppSectionHeader
 import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
@@ -58,9 +59,12 @@ import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
+import com.receiptai.tracker.ui.theme.ReceiptAISurface
 
-private val HistoryBackground = ReceiptAIBackground
-private val SearchBackground = Color(0xFFF0EEF3)
+private val HistoryBackground: Color
+    @Composable get() = ReceiptAIBackground
+private val SearchBackground: Color
+    @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 
 data class HistoryTransaction(
     val id: String,
@@ -68,7 +72,9 @@ data class HistoryTransaction(
     val merchantName: String,
     val category: String,
     val amountMinorUnits: Long,
-    val currency: String = "USD"
+    val currency: String = "USD",
+    val originalAmountMinorUnits: Long = amountMinorUnits,
+    val originalCurrency: String = currency
 )
 
 @Composable
@@ -80,6 +86,7 @@ fun TransactionHistoryScreen(
     onFilterClick: () -> Unit = {},
     onTransactionClick: (HistoryTransaction) -> Unit = {}
 ) {
+    val strings = receiptAIStrings()
     var query by rememberSaveable { mutableStateOf("") }
     var isFilterSheetVisible by rememberSaveable { mutableStateOf(false) }
     var appliedFilters by remember { mutableStateOf(TransactionFilterState()) }
@@ -118,7 +125,7 @@ fun TransactionHistoryScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item { AppSectionHeader(title = "Transactions") }
+            item { AppSectionHeader(title = strings.transactions) }
             item {
                 HistorySearchBar(
                     query = query,
@@ -135,10 +142,10 @@ fun TransactionHistoryScreen(
                 if (groupTransactions.isNotEmpty()) {
                     item(key = "header-$groupName") {
                         Text(
-                            text = groupName,
+                            text = strings.dateGroupLabel(groupName),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF4F4B59),
+                            color = ReceiptAISecondaryText,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -180,6 +187,7 @@ private fun HistorySearchBar(
     onQueryChange: (String) -> Unit,
     onFilterClick: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -193,7 +201,7 @@ private fun HistorySearchBar(
                 .height(56.dp),
             placeholder = {
                 Text(
-                    text = "Search transactions...",
+                    text = strings.searchTransactions,
                     color = ReceiptAISecondaryText
                 )
             },
@@ -220,12 +228,16 @@ private fun HistorySearchBar(
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
-                .border(1.dp, Color(0xFFD6CFDF), RoundedCornerShape(16.dp))
+                .background(ReceiptAISurface)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline,
+                    RoundedCornerShape(16.dp)
+                )
         ) {
             Icon(
                 imageVector = Icons.Default.Tune,
-                contentDescription = "Filter transactions",
+                contentDescription = strings.filterTransactions,
                 tint = ReceiptAIDeepPurple
             )
         }
@@ -237,13 +249,19 @@ private fun HistoryTransactionCard(
     transaction: HistoryTransaction,
     onClick: () -> Unit
 ) {
+    val strings = receiptAIStrings()
     val iconStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(16.dp)),
+            .shadow(2.dp, RoundedCornerShape(16.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                shape = RoundedCornerShape(16.dp)
+            ),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -277,25 +295,38 @@ private fun HistoryTransactionCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = transaction.category,
+                    text = strings.categoryLabel(transaction.category),
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReceiptAISecondaryText
                 )
             }
-            Text(
-                text = formatMoney(
-                    transaction.amountMinorUnits,
-                    transaction.currency,
-                    includePositiveSign = true
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (transaction.amountMinorUnits < 0) {
-                    Color(0xFFC62828)
-                } else {
-                    Color(0xFF2E7D52)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatMoney(
+                        transaction.amountMinorUnits,
+                        transaction.currency,
+                        includePositiveSign = true
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (transaction.amountMinorUnits < 0) {
+                        Color(0xFFC62828)
+                    } else {
+                        Color(0xFF2E7D52)
+                    }
+                )
+                if (transaction.originalCurrency != transaction.currency) {
+                    Text(
+                        text = formatMoney(
+                            transaction.originalAmountMinorUnits,
+                            transaction.originalCurrency,
+                            includePositiveSign = true
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ReceiptAISecondaryText.copy(alpha = 0.68f)
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -317,6 +348,7 @@ private fun HistoryTransaction.matches(filters: TransactionFilterState): Boolean
 
 @Composable
 private fun EmptyHistoryState(hasTransactions: Boolean) {
+    val strings = receiptAIStrings()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -325,9 +357,9 @@ private fun EmptyHistoryState(hasTransactions: Boolean) {
     ) {
         Text(
             text = if (hasTransactions) {
-                "No matching transactions"
+                strings.noMatchingTransactions
             } else {
-                "No transactions yet"
+                strings.noTransactions
             },
             color = ReceiptAISecondaryText,
             style = MaterialTheme.typography.bodyLarge

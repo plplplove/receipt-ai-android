@@ -36,9 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
+import com.receiptai.tracker.ui.theme.ReceiptAIBackground
+import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 
 enum class TransactionTypeFilter {
     ALL,
@@ -64,6 +67,7 @@ fun TransactionFilterBottomSheet(
     onDismissRequest: () -> Unit,
     onApply: (TransactionFilterState) -> Unit
 ) {
+    val strings = receiptAIStrings()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var filters by remember(initialFilters) { mutableStateOf(initialFilters) }
     val categories = listOf(
@@ -80,9 +84,13 @@ fun TransactionFilterBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = ReceiptAISurface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
+        ReceiptAISystemBarsEffect(
+            statusBarColor = ReceiptAIBackground,
+            navigationBarColor = ReceiptAISurface
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,23 +101,23 @@ fun TransactionFilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Filter transactions",
+                    text = strings.filterTransactions,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = ReceiptAIDeepPurple,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onDismissRequest) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close filters",
+                        contentDescription = strings.filterTransactions,
                         tint = ReceiptAISecondaryText
                     )
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            FilterSectionTitle("Transaction type")
+            FilterSectionTitle(strings.filterTransactionType)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -126,20 +134,20 @@ fun TransactionFilterBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(18.dp))
-            FilterSectionTitle("Category")
+            FilterSectionTitle(strings.category)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(categories) { category ->
                     FilterChip(
                         selected = filters.category == category,
                         onClick = { filters = filters.copy(category = category) },
-                        label = { Text(category) },
+                        label = { Text(strings.categoryLabel(category)) },
                         colors = filterChipColors()
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
-            FilterSectionTitle("Date")
+            FilterSectionTitle(strings.date)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -164,17 +172,21 @@ fun TransactionFilterBottomSheet(
                 OutlinedButton(
                     onClick = { filters = TransactionFilterState() },
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ReceiptAIDeepPurple)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
-                    Text("Clear")
+                    Text(strings.clear)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Button(
                     onClick = { onApply(filters) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ReceiptAIDeepPurple)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
-                    Text("Apply")
+                    Text(strings.apply)
                 }
             }
         }
@@ -194,21 +206,23 @@ private fun FilterSectionTitle(text: String) {
 
 @Composable
 private fun filterChipColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = ReceiptAIDeepPurple.copy(alpha = 0.14f),
-    selectedLabelColor = ReceiptAIDeepPurple,
-    selectedLeadingIconColor = ReceiptAIDeepPurple,
-    containerColor = Color(0xFFF4F1F7),
+    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+    selectedLabelColor = MaterialTheme.colorScheme.primary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+    containerColor = MaterialTheme.colorScheme.surfaceVariant,
     labelColor = ReceiptAISecondaryText
 )
 
+@Composable
 private fun TransactionTypeFilter.label() = when (this) {
-    TransactionTypeFilter.ALL -> "All"
-    TransactionTypeFilter.EXPENSES -> "Expenses"
-    TransactionTypeFilter.INCOME -> "Income"
+    TransactionTypeFilter.ALL -> receiptAIStrings().all
+    TransactionTypeFilter.EXPENSES -> receiptAIStrings().expenses
+    TransactionTypeFilter.INCOME -> receiptAIStrings().income
 }
 
+@Composable
 private fun TransactionDateFilter.label() = when (this) {
-    TransactionDateFilter.ALL_TIME -> "All time"
-    TransactionDateFilter.TODAY -> "Today"
-    TransactionDateFilter.THIS_WEEK -> "This week"
+    TransactionDateFilter.ALL_TIME -> receiptAIStrings().allTime
+    TransactionDateFilter.TODAY -> receiptAIStrings().today
+    TransactionDateFilter.THIS_WEEK -> receiptAIStrings().thisWeek
 }

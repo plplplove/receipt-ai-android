@@ -1,42 +1,122 @@
 package com.receiptai.tracker.presentation.settings
-
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.receiptai.tracker.presentation.dashboard.DashboardDestination
+import com.receiptai.tracker.presentation.localization.AppLanguage
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
+import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
+import com.receiptai.tracker.presentation.components.ReceiptAIInfoDialog
 import com.receiptai.tracker.presentation.navigation.AppSectionHeader
 import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
+import com.receiptai.tracker.ui.theme.ReceiptAIError
+import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
+import com.receiptai.tracker.ui.theme.ReceiptAIMint
+import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
+import com.receiptai.tracker.ui.theme.ThemeMode
+
+private val SettingsCardShape = RoundedCornerShape(20.dp)
+private val SettingsRowShape = RoundedCornerShape(16.dp)
+
+private data class DisplayCurrencyOption(
+    val code: String,
+    val name: String,
+    val symbol: String
+)
+
+private val DisplayCurrencyOptions = listOf(
+    DisplayCurrencyOption("USD", "US Dollar", "$"),
+    DisplayCurrencyOption("EUR", "Euro", "€"),
+    DisplayCurrencyOption("GBP", "British Pound", "£"),
+    DisplayCurrencyOption("PLN", "Polish Złoty", "zł"),
+    DisplayCurrencyOption("CAD", "Canadian Dollar", "CA$"),
+    DisplayCurrencyOption("AUD", "Australian Dollar", "A$"),
+    DisplayCurrencyOption("JPY", "Japanese Yen", "¥")
+)
 
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    themeMode: ThemeMode = ThemeMode.SYSTEM_DEFAULT,
+    onThemeModeSelected: (ThemeMode) -> Unit = {},
     onDestinationSelected: (DashboardDestination) -> Unit = {},
-    onAddExpenseClick: () -> Unit = {}
+    onAddExpenseClick: () -> Unit = {},
+    onDeleteAllData: () -> Unit = {},
+    onExportData: () -> Unit = {},
+    onPrivacyPolicyClick: () -> Unit = {},
+    appLanguage: AppLanguage = AppLanguage.ENGLISH,
+    onLanguageSelected: (AppLanguage) -> Unit = {},
+    onCurrencyClick: () -> Unit = {},
+    currencyCode: String = "USD",
+    onCurrencySelected: (String) -> Unit = {},
+    onAppLockChanged: (Boolean) -> Unit = {}
 ) {
+    var appLockEnabled by rememberSaveable { mutableStateOf(false) }
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
+    var showThemeSelector by rememberSaveable { mutableStateOf(false) }
+    var showCurrencySelector by rememberSaveable { mutableStateOf(false) }
+    var showLanguageSelector by rememberSaveable { mutableStateOf(false) }
+    val strings = receiptAIStrings()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = ReceiptAIBackground,
@@ -59,45 +139,550 @@ fun SettingsScreen(
                 end = 16.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             item {
-                AppSectionHeader(title = "Settings")
+                AppSectionHeader(title = strings.settings)
             }
             item {
-                EmptySettingsCard()
+                SettingsSection(title = strings.preferences) {
+                    SettingsRow(
+                        icon = if (themeMode == ThemeMode.LIGHT) {
+                            Icons.Default.LightMode
+                        } else {
+                            Icons.Default.DarkMode
+                        },
+                        title = strings.theme,
+                        value = strings.themeModeLabel(themeMode.storageValue),
+                        onClick = { showThemeSelector = true }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.Language,
+                        title = strings.language,
+                        value = appLanguage.nativeLabel,
+                        contentDescription = strings.language,
+                        onClick = {
+                            showLanguageSelector = true
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Default.AttachMoney,
+                        title = strings.currency,
+                        value = displayCurrencyLabel(currencyCode),
+                        onClick = {
+                            onCurrencyClick()
+                            showCurrencySelector = true
+                        }
+                    )
+                }
+            }
+            item {
+                SettingsSection(title = strings.security) {
+                    SettingsRow(
+                        icon = Icons.Default.Lock,
+                        title = strings.requirePinBiometrics,
+                        trailing = {
+                            Switch(
+                                checked = appLockEnabled,
+                                onCheckedChange = { enabled ->
+                                    appLockEnabled = enabled
+                                    onAppLockChanged(enabled)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = ReceiptAISurface,
+                                    checkedTrackColor = ReceiptAIMint,
+                                    checkedBorderColor = ReceiptAIMint,
+                                    uncheckedThumbColor = ReceiptAISurface,
+                                    uncheckedTrackColor = ReceiptAISecondaryText.copy(alpha = 0.28f),
+                                    uncheckedBorderColor = ReceiptAISecondaryText.copy(alpha = 0.45f)
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+            item {
+                SettingsSection(title = strings.dataManagement) {
+                    SettingsRow(
+                        icon = Icons.Default.FileDownload,
+                        title = strings.exportToCsv,
+                        trailing = { SettingsChevron() },
+                        onClick = {
+                            onExportData()
+                        }
+                    )
+                }
+            }
+            item {
+                SettingsSection(title = strings.about) {
+                    SettingsRow(
+                        icon = Icons.Default.Shield,
+                        title = strings.privacyPolicy,
+                        trailing = { SettingsChevron() },
+                        onClick = {
+                            onPrivacyPolicyClick()
+                            showPrivacyPolicy = true
+                        }
+                    )
+                }
+            }
+            item {
+                SettingsSection(title = strings.dangerZone) {
+                    SettingsRow(
+                        icon = Icons.Default.DeleteOutline,
+                        title = strings.deleteAllData,
+                        titleColor = ReceiptAIError,
+                        iconTint = ReceiptAIError,
+                        onClick = { showDeleteConfirmation = true }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDeleteConfirmation) {
+        ReceiptAIConfirmationDialog(
+            title = strings.deleteAllDataTitle,
+            message = strings.deleteAllDataMessage,
+            confirmLabel = strings.delete,
+            dismissLabel = strings.cancel,
+            icon = Icons.Default.DeleteOutline,
+            confirmColor = ReceiptAIError,
+            onDismiss = { showDeleteConfirmation = false },
+            onConfirm = {
+                showDeleteConfirmation = false
+                onDeleteAllData()
+            }
+        )
+    }
+
+    if (showPrivacyPolicy) {
+        ReceiptAIInfoDialog(
+            title = strings.privacyPolicy,
+            message = strings.privacyPolicyMessage,
+            icon = Icons.Default.Shield,
+            onDismiss = { showPrivacyPolicy = false }
+        )
+    }
+
+    if (showThemeSelector) {
+        ThemeSelectionDialog(
+            selectedMode = themeMode,
+            onDismiss = { showThemeSelector = false },
+            onModeSelected = { selectedMode ->
+                showThemeSelector = false
+                onThemeModeSelected(selectedMode)
+            }
+        )
+    }
+
+    if (showCurrencySelector) {
+        CurrencySelectionDialog(
+            selectedCurrency = currencyCode,
+            onDismiss = { showCurrencySelector = false },
+            onCurrencySelected = { selectedCurrency ->
+                showCurrencySelector = false
+                onCurrencySelected(selectedCurrency)
+            }
+        )
+    }
+
+    if (showLanguageSelector) {
+        LanguageSelectionDialog(
+            selectedLanguage = appLanguage,
+            onDismiss = { showLanguageSelector = false },
+            onLanguageSelected = { selectedLanguage ->
+                showLanguageSelector = false
+                onLanguageSelected(selectedLanguage)
+            }
+        )
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = ReceiptAIPrimaryText,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = SettingsCardShape,
+            colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                content()
             }
         }
     }
 }
 
 @Composable
-private fun EmptySettingsCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+private fun SettingsRow(
+    icon: ImageVector,
+    title: String,
+    value: String? = null,
+    titleColor: Color = ReceiptAIPrimaryText,
+    iconTint: Color = ReceiptAIDeepPurple,
+    trailing: @Composable () -> Unit = {
+        value?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = ReceiptAISecondaryText
+            )
+        }
+    },
+    contentDescription: String? = null,
+    onClick: (() -> Unit)? = null
+) {
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .clip(SettingsRowShape)
+        .then(
+            if (onClick == null) {
+                Modifier
+            } else {
+                Modifier.clickable(
+                    role = Role.Button,
+                    onClick = onClick
+                )
+            }
+        )
+        .then(
+            if (contentDescription == null) {
+                Modifier
+            } else {
+                Modifier.semantics {
+                    this.contentDescription = contentDescription
+                    role = Role.Button
+                }
+            }
+        )
+        .padding(horizontal = 16.dp, vertical = 14.dp)
+
+    Row(
+        modifier = rowModifier,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = titleColor,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        trailing()
+    }
+}
+
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = ReceiptAISecondaryText.copy(alpha = 0.12f),
+        thickness = 1.dp
+    )
+}
+
+@Composable
+private fun SettingsChevron() {
+    Icon(
+        imageVector = Icons.Default.ChevronRight,
+        contentDescription = null,
+        tint = ReceiptAISecondaryText,
+        modifier = Modifier.size(22.dp)
+    )
+}
+
+@Composable
+private fun ThemeSelectionDialog(
+    selectedMode: ThemeMode,
+    onDismiss: () -> Unit,
+    onModeSelected: (ThemeMode) -> Unit
+) {
+    val strings = receiptAIStrings()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        ReceiptAISystemBarsEffect()
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 64.dp, horizontal = 24.dp),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = null,
-                    tint = ReceiptAIDeepPurple,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Preferences will appear here.",
+                    text = strings.theme,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = ReceiptAIPrimaryText,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = strings.chooseThemeSubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReceiptAISecondaryText
                 )
+                Spacer(modifier = Modifier.height(18.dp))
+                ThemeMode.entries.forEachIndexed { index, mode ->
+                    ThemeOptionRow(
+                        mode = mode,
+                        selected = mode == selectedMode,
+                        onClick = { onModeSelected(mode) }
+                    )
+                    if (index < ThemeMode.entries.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            color = ReceiptAISecondaryText.copy(alpha = 0.12f)
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeOptionRow(
+    mode: ThemeMode,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val strings = receiptAIStrings()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(SettingsRowShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = ReceiptAIDeepPurple,
+                unselectedColor = ReceiptAISecondaryText
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = strings.themeModeLabel(mode.storageValue),
+            style = MaterialTheme.typography.bodyLarge,
+            color = ReceiptAIPrimaryText,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+private fun displayCurrencyLabel(currencyCode: String): String {
+    val option = DisplayCurrencyOptions.firstOrNull { it.code == currencyCode }
+    return option?.let { "${it.code} (${it.symbol})" } ?: currencyCode
+}
+
+@Composable
+private fun CurrencySelectionDialog(
+    selectedCurrency: String,
+    onDismiss: () -> Unit,
+    onCurrencySelected: (String) -> Unit
+) {
+    val strings = receiptAIStrings()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        ReceiptAISystemBarsEffect()
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = strings.displayCurrency,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = ReceiptAIPrimaryText,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = strings.displayCurrencySubtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ReceiptAISecondaryText
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                DisplayCurrencyOptions.forEachIndexed { index, option ->
+                    CurrencyOptionRow(
+                        option = option,
+                        selected = option.code == selectedCurrency,
+                        onClick = { onCurrencySelected(option.code) }
+                    )
+                    if (index < DisplayCurrencyOptions.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            color = ReceiptAISecondaryText.copy(alpha = 0.12f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CurrencyOptionRow(
+    option: DisplayCurrencyOption,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val strings = receiptAIStrings()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(SettingsRowShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = ReceiptAIDeepPurple,
+                unselectedColor = ReceiptAISecondaryText
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = strings.currencyName(option.code),
+                style = MaterialTheme.typography.bodyLarge,
+                color = ReceiptAIPrimaryText,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            Text(
+                text = "${option.code} (${option.symbol})",
+                style = MaterialTheme.typography.bodySmall,
+                color = ReceiptAISecondaryText
+            )
+        }
+    }
+}
+
+@Composable
+private fun LanguageSelectionDialog(
+    selectedLanguage: AppLanguage,
+    onDismiss: () -> Unit,
+    onLanguageSelected: (AppLanguage) -> Unit
+) {
+    val strings = receiptAIStrings()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        ReceiptAISystemBarsEffect()
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = strings.language,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = ReceiptAIPrimaryText,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = strings.languageSubtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ReceiptAISecondaryText
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                AppLanguage.entries.forEachIndexed { index, language ->
+                    LanguageOptionRow(
+                        language = language,
+                        selected = language == selectedLanguage,
+                        onClick = { onLanguageSelected(language) }
+                    )
+                    if (index < AppLanguage.entries.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            color = ReceiptAISecondaryText.copy(alpha = 0.12f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageOptionRow(
+    language: AppLanguage,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(SettingsRowShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = ReceiptAIDeepPurple,
+                unselectedColor = ReceiptAISecondaryText
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = language.nativeLabel,
+            style = MaterialTheme.typography.bodyLarge,
+            color = ReceiptAIPrimaryText,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+private fun SettingsScreenPreview() {
+    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+        SettingsScreen()
     }
 }

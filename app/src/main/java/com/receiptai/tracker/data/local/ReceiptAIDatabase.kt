@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ExpenseEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class ReceiptAIDatabase : RoomDatabase() {
@@ -22,10 +22,19 @@ abstract class ReceiptAIDatabase : RoomDatabase() {
             }
         }
 
-        /** Removes records from the old debug-only demo dataset without touching user data. */
+        /**
+         * Kept as a schema bridge for databases created by the old preview build.
+         * It must remain non-destructive: user-created rows can use any id format.
+         */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("DELETE FROM expenses WHERE id LIKE 'demo-%'")
+                // No data cleanup belongs in a schema migration.
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Reserved for the next schema change; intentionally non-destructive.
             }
         }
     }

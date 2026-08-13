@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.receiptai.tracker.presentation.dashboard.DashboardDestination
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
+import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 
@@ -41,6 +43,7 @@ fun ReceiptAIBottomBar(
     onAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = receiptAIStrings()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -66,7 +69,7 @@ fun ReceiptAIBottomBar(
                 ) {
                     NavigationItem(
                         destination = DashboardDestination.HOME,
-                        label = "Home",
+                        label = strings.navigationHome,
                         icon = Icons.Default.Home,
                         selectedDestination = selectedDestination,
                         onClick = onDestinationSelected,
@@ -74,7 +77,7 @@ fun ReceiptAIBottomBar(
                     )
                     NavigationItem(
                         destination = DashboardDestination.HISTORY,
-                        label = "History",
+                        label = strings.navigationHistory,
                         icon = Icons.Default.GridView,
                         selectedDestination = selectedDestination,
                         onClick = onDestinationSelected,
@@ -83,7 +86,7 @@ fun ReceiptAIBottomBar(
                     Spacer(modifier = Modifier.width(72.dp))
                     NavigationItem(
                         destination = DashboardDestination.ANALYTICS,
-                        label = "Analytics",
+                        label = strings.navigationAnalytics,
                         icon = Icons.Default.Analytics,
                         selectedDestination = selectedDestination,
                         onClick = onDestinationSelected,
@@ -91,7 +94,7 @@ fun ReceiptAIBottomBar(
                     )
                     NavigationItem(
                         destination = DashboardDestination.SETTINGS,
-                        label = "Settings",
+                        label = strings.navigationSettings,
                         icon = Icons.Default.Settings,
                         selectedDestination = selectedDestination,
                         onClick = onDestinationSelected,
@@ -104,7 +107,7 @@ fun ReceiptAIBottomBar(
         FloatingActionButton(
             onClick = onAddClick,
             containerColor = ReceiptAIDeepPurple,
-            contentColor = ReceiptAISurface,
+            contentColor = ReceiptAIOnBrand,
             shape = CircleShape,
             modifier = Modifier
                 .size(64.dp)
@@ -112,7 +115,7 @@ fun ReceiptAIBottomBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Add expense",
+                contentDescription = strings.addExpense,
                 modifier = Modifier.size(32.dp)
             )
         }

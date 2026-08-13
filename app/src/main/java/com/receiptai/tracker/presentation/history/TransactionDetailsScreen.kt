@@ -62,17 +62,22 @@ import androidx.compose.ui.unit.dp
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
+import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAIMint
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 
 private val DeleteRed = Color(0xFFC62828)
 private val IncomeGreen = Color(0xFF2E7D52)
-private val CompletedBackground = Color(0xFFDDF7ED)
-private val PlaceholderBackground = Color(0xFFF3F1F5)
+private val CompletedBackground: Color
+    @Composable get() = ReceiptAIMint.copy(alpha = 0.14f)
+private val PlaceholderBackground: Color
+    @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 
 data class TransactionDetailsUiState(
     val id: String = "",
@@ -83,7 +88,9 @@ data class TransactionDetailsUiState(
     val account: String = "",
     val category: String = "",
     val notes: String = "",
-    val status: String = "Completed"
+    val status: String = "Completed",
+    val originalAmountMinorUnits: Long = amountMinorUnits,
+    val originalCurrency: String = currency
 )
 
 @Composable
@@ -95,6 +102,7 @@ fun TransactionDetailsScreen(
     modifier: Modifier = Modifier
 ) {
     var isDeleteDialogVisible by rememberSaveable { mutableStateOf(false) }
+    val strings = receiptAIStrings()
 
     BackHandler(onBack = onBack)
 
@@ -103,28 +111,34 @@ fun TransactionDetailsScreen(
         containerColor = ReceiptAIBackground,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                modifier = Modifier.statusBarsPadding(),
-                title = {
-                    Text(
-                        text = "Details",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = ReceiptAIPrimaryText
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ReceiptAIBackground)
+                    .statusBarsPadding()
+            ) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = strings.details,
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ReceiptAIBackground,
-                    titleContentColor = ReceiptAIPrimaryText
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = strings.details,
+                                tint = ReceiptAIPrimaryText
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = ReceiptAIBackground,
+                        titleContentColor = ReceiptAIPrimaryText
+                    )
                 )
-            )
+            }
         },
         bottomBar = {
             TransactionDetailsActions(
@@ -154,10 +168,10 @@ fun TransactionDetailsScreen(
 
     if (isDeleteDialogVisible) {
         ReceiptAIConfirmationDialog(
-            title = "Delete transaction?",
-            message = "Are you sure you want to delete this transaction?",
-            confirmLabel = "Delete",
-            dismissLabel = "Cancel",
+            title = strings.deleteTransactionTitle,
+            message = strings.deleteTransactionMessage,
+            confirmLabel = strings.delete,
+            dismissLabel = strings.cancel,
             icon = Icons.Default.DeleteOutline,
             confirmColor = DeleteRed,
             onConfirm = {
@@ -171,6 +185,7 @@ fun TransactionDetailsScreen(
 
 @Composable
 private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
+    val strings = receiptAIStrings()
     val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -200,7 +215,7 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
             }
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = transaction.merchantName.ifBlank { "Merchant" },
+                text = transaction.merchantName.ifBlank { strings.merchant },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = ReceiptAIPrimaryText
@@ -216,13 +231,26 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
                 fontWeight = FontWeight.Bold,
                 color = amountColor(transaction.amountMinorUnits)
             )
+            if (transaction.originalCurrency != transaction.currency) {
+                Text(
+                    text = strings.original(
+                        formatMoney(
+                            transaction.originalAmountMinorUnits,
+                            transaction.originalCurrency,
+                            includePositiveSign = true
+                        )
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ReceiptAISecondaryText.copy(alpha = 0.72f)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
                 color = CompletedBackground,
                 shape = RoundedCornerShape(50)
             ) {
                 Text(
-                    text = transaction.status,
+                    text = strings.completed,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = IncomeGreen,
@@ -235,6 +263,7 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
 
 @Composable
 private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
+    val strings = receiptAIStrings()
     val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -244,7 +273,7 @@ private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Transaction details",
+                text = strings.transactionDetails,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = ReceiptAIPrimaryText
@@ -252,18 +281,21 @@ private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
             Spacer(modifier = Modifier.height(16.dp))
             DetailRow(
                 icon = Icons.Default.CalendarToday,
-                label = "Date",
-                value = transaction.dateText.ifBlank { "Not specified" }
+                label = strings.date,
+                value = transaction.dateText.ifBlank { strings.notSpecified }
             )
             DetailRow(
                 icon = Icons.Default.AccountBalanceWallet,
-                label = "Account",
-                value = transaction.account.ifBlank { "Not specified" }
+                label = strings.account,
+                value = transaction.account.ifBlank { strings.notSpecified }
             )
             DetailRow(
                 icon = categoryStyle.icon,
-                label = "Category",
-                value = transaction.category.ifBlank { "Uncategorized" },
+                label = strings.category,
+                value = transaction.category
+                    .takeIf { it.isNotBlank() }
+                    ?.let(strings.categoryLabel)
+                    ?: strings.uncategorized,
                 iconTint = categoryStyle.accent,
                 iconContainerColor = categoryStyle.container
             )
@@ -310,6 +342,7 @@ private fun DetailRow(
 
 @Composable
 private fun NotesRow(notes: String) {
+    val strings = receiptAIStrings()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -320,7 +353,7 @@ private fun NotesRow(notes: String) {
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Notes",
+                text = strings.notes,
                 style = MaterialTheme.typography.bodyMedium,
                 color = ReceiptAISecondaryText
             )
@@ -331,7 +364,7 @@ private fun NotesRow(notes: String) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = notes.ifBlank { "No notes added." },
+                    text = notes.ifBlank { receiptAIStrings().noNotesAdded },
                     style = MaterialTheme.typography.bodySmall,
                     color = ReceiptAISecondaryText,
                     modifier = Modifier.padding(12.dp)
@@ -343,9 +376,10 @@ private fun NotesRow(notes: String) {
 
 @Composable
 private fun ReceiptPlaceholder() {
+    val strings = receiptAIStrings()
     Column(modifier = Modifier.padding(top = 12.dp)) {
         Text(
-            text = "Receipt",
+            text = receiptAIStrings().receipt,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = ReceiptAIPrimaryText
@@ -373,7 +407,7 @@ private fun ReceiptPlaceholder() {
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Receipt image",
+                    text = receiptAIStrings().receiptImage,
                     style = MaterialTheme.typography.bodySmall,
                     color = ReceiptAISecondaryText
                 )
@@ -434,7 +468,7 @@ private fun TransactionDetailsActions(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Delete")
+                Text(receiptAIStrings().delete)
             }
             Button(
                 onClick = onEditClick,
@@ -442,7 +476,7 @@ private fun TransactionDetailsActions(
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ReceiptAIDeepPurple,
-                    contentColor = ReceiptAISurface
+                    contentColor = ReceiptAIOnBrand
                 )
             ) {
                 Icon(
@@ -451,12 +485,13 @@ private fun TransactionDetailsActions(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Edit")
+                Text(receiptAIStrings().edit)
             }
         }
     }
 }
 
+@Composable
 private fun amountColor(amountMinorUnits: Long): Color = when {
     amountMinorUnits < 0L -> DeleteRed
     amountMinorUnits > 0L -> IncomeGreen

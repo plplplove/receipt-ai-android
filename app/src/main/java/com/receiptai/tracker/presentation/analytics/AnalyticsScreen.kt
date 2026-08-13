@@ -42,9 +42,11 @@ import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIMint
+import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.presentation.localization.receiptAIStrings
 
 @Composable
 fun AnalyticsScreen(
@@ -56,6 +58,7 @@ fun AnalyticsScreen(
     onDestinationSelected: (DashboardDestination) -> Unit = {},
     onAddExpenseClick: () -> Unit = {}
 ) {
+    val strings = receiptAIStrings()
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = ReceiptAIBackground,
@@ -80,7 +83,7 @@ fun AnalyticsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { AppSectionHeader(title = "Analytics") }
+            item { AppSectionHeader(title = strings.analytics) }
             if (categoryBreakdown.isEmpty()) {
                 item { EmptyAnalyticsCard() }
             } else {
@@ -113,20 +116,20 @@ private fun AnalyticsSummaryCard(
     ) {
         Column(modifier = Modifier.padding(22.dp)) {
             Text(
-                text = "This month",
+                text = receiptAIStrings().thisMonth(currency),
                 style = MaterialTheme.typography.titleMedium,
-                color = ReceiptAISurface.copy(alpha = 0.78f)
+                color = ReceiptAIOnBrand.copy(alpha = 0.78f)
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = formatMoney(monthlySpendingMinorUnits, currency),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = ReceiptAISurface
+                color = ReceiptAIOnBrand
             )
             Spacer(modifier = Modifier.height(18.dp))
             Surface(
-                color = ReceiptAISurface.copy(alpha = 0.14f),
+                color = ReceiptAIOnBrand.copy(alpha = 0.14f),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Row(
@@ -140,13 +143,9 @@ private fun AnalyticsSummaryCard(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = if (transactionCount == 1) {
-                            "1 saved transaction"
-                        } else {
-                            "$transactionCount saved transactions"
-                        },
+                        text = receiptAIStrings().savedTransactions(transactionCount),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ReceiptAISurface,
+                        color = ReceiptAIOnBrand,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
@@ -168,7 +167,7 @@ private fun CategoryBreakdownCard(categories: List<CategorySpend>) {
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Text(
-                text = "Spending by category",
+                text = receiptAIStrings().spendingByCategory,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = ReceiptAIPrimaryText
@@ -182,6 +181,7 @@ private fun CategoryBreakdownCard(categories: List<CategorySpend>) {
 
 @Composable
 private fun CategoryProgress(category: CategorySpend) {
+    val strings = receiptAIStrings()
     val categoryColor = Color(category.color)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -191,7 +191,7 @@ private fun CategoryProgress(category: CategorySpend) {
                     .background(categoryColor, CircleShape)
             )
             Text(
-                text = category.name,
+                text = strings.categoryLabel(category.name),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = ReceiptAIPrimaryText,
@@ -243,14 +243,14 @@ private fun EmptyAnalyticsCard() {
                     tint = ReceiptAIDeepPurple
                 )
                 Text(
-                    text = "No analytics yet",
+                    text = receiptAIStrings().noAnalytics,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = ReceiptAIDeepPurple,
                     modifier = Modifier.padding(top = 12.dp)
                 )
                 Text(
-                    text = "Add transactions to see spending insights.",
+                    text = receiptAIStrings().analyticsEmptySubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReceiptAISecondaryText
                 )
