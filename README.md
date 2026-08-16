@@ -7,6 +7,18 @@
 
 ReceiptAI is a modern, offline-first Android app for personal finance management. It combines classic expense tracking with a polished, animated Material 3 experience and an AI receipt scanner — all data stays on the device.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/home.jpg" width="260" alt="Dashboard with total balance, monthly spending and recent transactions">
+  <img src="docs/screenshots/analytics.jpg" width="260" alt="Spending breakdown by category">
+  <img src="docs/screenshots/history.jpg" width="260" alt="Transaction history with search and filters">
+</p>
+<p align="center">
+  <img src="docs/screenshots/details.jpg" width="260" alt="Transaction details with attached receipt section">
+  <img src="docs/screenshots/add_expense.jpg" width="260" alt="Add expense form pre-filled from an AI-scanned receipt">
+</p>
+
 ## Features
 
 **AI Receipt Scanner**
