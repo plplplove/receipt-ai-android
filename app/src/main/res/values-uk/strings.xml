@@ -58,6 +58,8 @@
     <string name="saving">Збереження…</string>
     <string name="confirm_and_save">Підтвердити й зберегти</string>
     <string name="cancel">Скасувати</string>
+    <string name="close">Закрити</string>
+    <string name="main_account">Основний рахунок</string>
     <string name="discard">Вийти</string>
     <string name="stay">Залишитися</string>
     <string name="discard_changes_title">Скасувати зміни?</string>
@@ -112,7 +114,6 @@
     <string name="save_failed">Не вдалося зберегти транзакцію</string>
     <string name="delete_failed">Не вдалося видалити транзакцію</string>
     <string name="delete_data_failed">Не вдалося видалити дані</string>
-    <string name="receipt_scanning_soon">Сканування чеків буде доступне пізніше.</string>
     <string name="privacy_policy_message">ReceiptAI зберігає дані транзакцій локально на цьому пристрої, щоб ви могли переглядати баланс, історію та аналітику. Ваші дані не передаються третім сторонам.</string>
     <string name="complete_required_fields">Заповніть усі обов’язкові поля.</string>
     <string name="required_fields">Обов’язкові поля: %1$s.</string>
@@ -160,4 +161,7 @@
     <string name="biometric_prompt_title">Розблокувати ReceiptAI</string>
     <string name="navigate_back">Назад</string>
     <string name="unable_to_load_expenses">Не вдалося завантажити витрати</string>
+    <string name="scanning_receipt">Сканування чека…</string>
+    <string name="receipt_scan_failed">Не вдалося розпізнати чек, додайте дані вручну.</string>
+    <string name="offline_scan_message">Немає підключення до інтернету. Введіть дані вручну.</string>
 </resources>

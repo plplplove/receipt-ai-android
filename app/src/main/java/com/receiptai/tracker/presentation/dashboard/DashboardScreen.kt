@@ -1,7 +1,10 @@
 package com.receiptai.tracker.presentation.dashboard
 
+import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -13,6 +16,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,6 +73,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.receiptai.tracker.domain.model.Expense
 import com.receiptai.tracker.domain.money.CurrencyConverter
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.receiptai.tracker.presentation.analytics.AnalyticsScreen
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
@@ -96,6 +105,9 @@ import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.ui.theme.ReceiptAISurfaceGradient
 import com.receiptai.tracker.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val DashboardBackground: Color
     @Composable get() = ReceiptAIBackground
@@ -123,6 +135,42 @@ fun DashboardRoute(
     val context = LocalContext.current
     val strings = receiptAIStrings()
     val expensesForExport by rememberUpdatedState(state.expenses)
+
+    val documentScanner = remember {
+        GmsDocumentScanning.getClient(
+            GmsDocumentScannerOptions.Builder()
+                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+                .setGalleryImportAllowed(false)
+                .setPageLimit(1)
+                .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+                .build()
+        )
+    }
+    val scanScope = rememberCoroutineScope()
+    val receiptScanLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val imageUri = GmsDocumentScanningResult
+            .fromActivityResultIntent(result.data)
+            ?.pages
+            ?.firstOrNull()
+            ?.imageUri
+        if (imageUri != null) {
+            scanScope.launch(Dispatchers.IO) {
+                val imageBytes = runCatching {
+                    context.contentResolver.openInputStream(imageUri)?.use { it.readBytes() }
+                }.getOrNull()
+                if (imageBytes != null) {
+                    viewModel.onIntent(DashboardIntent.ReceiptCaptured(imageBytes))
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, strings.receiptScanFailed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
@@ -184,7 +232,10 @@ fun DashboardRoute(
                         }
                         renderedTransaction.value?.let { transaction ->
                             TransactionDetailsScreen(
-                                transaction = transaction.toDetailsUiState(state.currency),
+                                transaction = transaction.toDetailsUiState(
+                                    displayCurrency = state.currency,
+                                    accountLabel = strings.mainAccount
+                                ),
                                 onBack = {
                                     viewModel.onIntent(DashboardIntent.TransactionDetailsDismissed)
                                 },
@@ -203,8 +254,12 @@ fun DashboardRoute(
                         val renderedForm = remember {
                             mutableStateOf(state.transactionForm)
                         }
+                        val renderedInitialForm = remember {
+                            mutableStateOf(state.transactionFormInitial)
+                        }
                         if (flowScreen == state.transactionFlowScreen) {
                             renderedForm.value = state.transactionForm
+                            renderedInitialForm.value = state.transactionFormInitial
                         }
                         AddEditTransactionScreen(
                             state = renderedForm.value,
@@ -213,6 +268,7 @@ fun DashboardRoute(
                             } else {
                                 AddEditTransactionMode.ADD_EXPENSE
                             },
+                            initialForm = renderedInitialForm.value,
                             onBack = {
                                 viewModel.onIntent(DashboardIntent.AddEditTransactionDismissed)
                             },
@@ -309,7 +365,22 @@ fun DashboardRoute(
                     viewModel.onIntent(DashboardIntent.AddExpenseDismissed)
                 },
                 onScanReceipt = {
-                    viewModel.onIntent(DashboardIntent.ScanReceiptClicked)
+                    val hostActivity = context as? Activity
+                    if (hostActivity != null) {
+                        documentScanner.getStartScanIntent(hostActivity)
+                            .addOnSuccessListener { intentSender ->
+                                receiptScanLauncher.launch(
+                                    IntentSenderRequest.Builder(intentSender).build()
+                                )
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(
+                                    context,
+                                    strings.receiptScanFailed,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    }
                 },
                 onAddManually = {
                     viewModel.onIntent(DashboardIntent.AddExpenseManuallyClicked)
@@ -323,6 +394,27 @@ fun DashboardRoute(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 96.dp)
         )
+
+        if (state.isScanningReceipt) {
+            BackHandler {}
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .pointerInput(Unit) { detectTapGestures { } },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = BrandPurple)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = strings.scanningReceipt,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -341,7 +433,10 @@ private fun Expense.toHistoryTransaction(displayCurrency: String) = HistoryTrans
     originalCurrency = currency
 )
 
-private fun Expense.toDetailsUiState(displayCurrency: String) = TransactionDetailsUiState(
+private fun Expense.toDetailsUiState(
+    displayCurrency: String,
+    accountLabel: String
+) = TransactionDetailsUiState(
     id = id,
     merchantName = merchantName,
     amountMinorUnits = CurrencyConverter.convertMinorUnits(
@@ -351,9 +446,10 @@ private fun Expense.toDetailsUiState(displayCurrency: String) = TransactionDetai
     ),
     currency = displayCurrency,
     dateText = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(dateTimestamp),
-    account = "Main account",
+    account = accountLabel,
     category = category,
     notes = notes,
+    receiptImagePath = receiptImagePath,
     originalAmountMinorUnits = amountMinorUnits,
     originalCurrency = currency
 )

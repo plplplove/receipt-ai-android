@@ -3,6 +3,7 @@
 package com.receiptai.tracker.presentation.expense
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,7 +65,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -83,6 +86,8 @@ import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.ui.theme.ReceiptAISystemBarsEffect
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
+import com.receiptai.tracker.presentation.components.ReceiptFullScreenViewer
+import com.receiptai.tracker.presentation.components.rememberReceiptBitmap
 import com.receiptai.tracker.presentation.components.parsePositiveAmount
 import com.receiptai.tracker.presentation.localization.receiptAIStrings
 import com.receiptai.tracker.presentation.localization.ReceiptAIStrings
@@ -108,7 +113,8 @@ data class AddEditTransactionUiState(
     val currencyCode: String = "",
     val category: String = "",
     val notes: String = "",
-    val transactionType: TransactionType = TransactionType.EXPENSE
+    val transactionType: TransactionType = TransactionType.EXPENSE,
+    val receiptImagePath: String? = null
 )
 
 data class TransactionCurrencyOption(
@@ -153,14 +159,16 @@ fun AddEditTransactionScreen(
     mode: AddEditTransactionMode = AddEditTransactionMode.ADD_EXPENSE,
     categories: List<String> = DefaultTransactionCategories,
     currencies: List<TransactionCurrencyOption> = DefaultTransactionCurrencies,
-    isSaving: Boolean = false
+    isSaving: Boolean = false,
+    initialForm: AddEditTransactionUiState? = null
 ) {
     var isCategoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isCurrencyMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isCalendarVisible by rememberSaveable { mutableStateOf(false) }
     var isDiscardDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var isReceiptViewerVisible by rememberSaveable { mutableStateOf(false) }
     var amountHasBeenEdited by rememberSaveable { mutableStateOf(state.totalAmount.isNotBlank()) }
-    val initialState = androidx.compose.runtime.remember { state }
+    val initialState = androidx.compose.runtime.remember { initialForm ?: state }
     val strings = receiptAIStrings()
     val title = when (mode) {
         AddEditTransactionMode.ADD_EXPENSE -> strings.addExpense
@@ -270,6 +278,14 @@ fun AddEditTransactionScreen(
                     onStateChange = onStateChange
                 )
             }
+            if (state.receiptImagePath != null) {
+                item {
+                    ReceiptAttachmentCard(
+                        receiptImagePath = state.receiptImagePath,
+                        onImageClick = { isReceiptViewerVisible = true }
+                    )
+                }
+            }
         }
     }
 
@@ -286,6 +302,14 @@ fun AddEditTransactionScreen(
                 )
                 isCalendarVisible = false
             }
+        )
+    }
+
+    if (isReceiptViewerVisible) {
+        ReceiptFullScreenViewer(
+            receiptImagePath = state.receiptImagePath,
+            contentDescription = strings.receiptImage,
+            onDismiss = { isReceiptViewerVisible = false }
         )
     }
 
@@ -961,6 +985,59 @@ private fun formatDate(millis: Long): String =
 
 private fun formatLongDate(millis: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(calendarOf(millis).time)
+
+@Composable
+private fun ReceiptAttachmentCard(
+    receiptImagePath: String,
+    onImageClick: () -> Unit
+) {
+    val strings = receiptAIStrings()
+    val bitmap by rememberReceiptBitmap(receiptImagePath, maxSide = 1280)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = ReceiptAISurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = strings.receipt,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = ReceiptAIPrimaryText
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            val decodedBitmap = bitmap
+            if (decodedBitmap != null) {
+                Image(
+                    bitmap = decodedBitmap.asImageBitmap(),
+                    contentDescription = strings.receiptImage,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(onClick = onImageClick)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(ReceiptAIBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = strings.receiptImage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReceiptAISecondaryText
+                    )
+                }
+            }
+        }
+    }
+}
 
 private val PreviewAddEditState = AddEditTransactionUiState(
     merchantName = "Sweetgreen",

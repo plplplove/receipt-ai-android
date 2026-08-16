@@ -7,5 +7,6 @@ data class Expense(
     val currency: String,
     val dateTimestamp: Long,
     val category: String,
-    val notes: String = ""
+    val notes: String = "",
+    val receiptImagePath: String? = null
 )

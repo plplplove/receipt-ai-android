@@ -46,7 +46,9 @@ data class DashboardState(
     val transactionFlowScreen: TransactionFlowScreen = TransactionFlowScreen.NONE,
     val selectedTransactionId: String? = null,
     val transactionForm: AddEditTransactionUiState = AddEditTransactionUiState(),
+    val transactionFormInitial: AddEditTransactionUiState = transactionForm,
     val isAddExpenseSheetVisible: Boolean = false,
+    val isScanningReceipt: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null
 ) {
@@ -57,8 +59,8 @@ data class DashboardState(
 sealed interface DashboardIntent {
     data object AddExpenseClicked : DashboardIntent
     data object AddExpenseDismissed : DashboardIntent
-    data object ScanReceiptClicked : DashboardIntent
     data object AddExpenseManuallyClicked : DashboardIntent
+    data class ReceiptCaptured(val imageBytes: ByteArray) : DashboardIntent
     data class TransactionSelected(val transactionId: String) : DashboardIntent
     data object TransactionDetailsDismissed : DashboardIntent
     data object EditTransactionClicked : DashboardIntent

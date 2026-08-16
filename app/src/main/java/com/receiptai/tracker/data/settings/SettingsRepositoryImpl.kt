@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val Context.settingsDataStore by preferencesDataStore(name = "receiptai_settings")
 
@@ -44,25 +46,29 @@ class SettingsRepositoryImpl @Inject constructor(
         }
 
     override suspend fun migrateLegacyPreferences() {
-        val currentPreferences = runCatching { dataStore.data.first() }
-            .getOrElse { throwable ->
-                if (throwable is IOException) emptyPreferences() else throw throwable
+        withContext(Dispatchers.IO) {
+            val currentPreferences = runCatching { dataStore.data.first() }
+                .getOrElse { throwable ->
+                    if (throwable is IOException) emptyPreferences() else throw throwable
+                }
+            if (currentPreferences.asMap().isNotEmpty()) {
+                legacyPreferences.edit().clear().apply()
+                return@withContext
             }
-        if (currentPreferences.asMap().isNotEmpty()) {
-            legacyPreferences.edit().clear().apply()
-            return
-        }
-        val themeMode = legacyPreferences.getString(LEGACY_THEME_MODE_KEY, null)
-        val displayCurrency = legacyPreferences.getString(LEGACY_DISPLAY_CURRENCY_KEY, null)
-        val language = legacyPreferences.getString(LEGACY_LANGUAGE_KEY, null)
-        if (themeMode == null && displayCurrency == null && language == null) return
+            val themeMode = legacyPreferences.getString(LEGACY_THEME_MODE_KEY, null)
+            val displayCurrency = legacyPreferences.getString(LEGACY_DISPLAY_CURRENCY_KEY, null)
+            val language = legacyPreferences.getString(LEGACY_LANGUAGE_KEY, null)
+            if (themeMode == null && displayCurrency == null && language == null) {
+                return@withContext
+            }
 
-        dataStore.edit { preferences ->
-            themeMode?.let { preferences[THEME_MODE] = it }
-            displayCurrency?.let { preferences[DISPLAY_CURRENCY] = it }
-            language?.let { preferences[LANGUAGE] = it }
+            dataStore.edit { preferences ->
+                themeMode?.let { preferences[THEME_MODE] = it }
+                displayCurrency?.let { preferences[DISPLAY_CURRENCY] = it }
+                language?.let { preferences[LANGUAGE] = it }
+            }
+            legacyPreferences.edit().clear().apply()
         }
-        legacyPreferences.edit().clear().apply()
     }
 
     override suspend fun setThemeMode(value: String) {

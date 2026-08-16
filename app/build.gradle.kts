@@ -1,10 +1,26 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.kapt")
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
+
+val geminiApiKey: String = runCatching {
+    val localProperties = Properties()
+    rootProject.file("local.properties").inputStream().use { localProperties.load(it) }
+    localProperties.getProperty("GEMINI_API_KEY")
+}.getOrNull().orEmpty()
+
+val nvidiaApiKey: String = runCatching {
+    val localProperties = Properties()
+    rootProject.file("local.properties").inputStream().use { localProperties.load(it) }
+    localProperties.getProperty("NVIDIA_API_KEY")
+}.getOrNull().orEmpty()
 
 hilt {
     enableAggregatingTask = false
@@ -50,6 +66,12 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    defaultConfig {
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+        buildConfigField("String", "NVIDIA_API_KEY", "\"$nvidiaApiKey\"")
     }
 }
 
@@ -68,6 +90,12 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.biometric)
+    implementation(libs.google.generative.ai)
+    implementation(libs.squareup.okhttp)
+    implementation(platform(libs.google.firebase.bom))
+    implementation(libs.google.firebase.crashlytics)
+    implementation(libs.play.services.mlkit.document.scanner)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.hilt.android)

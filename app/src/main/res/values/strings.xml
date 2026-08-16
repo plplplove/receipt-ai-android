@@ -58,6 +58,8 @@
     <string name="saving">Saving…</string>
     <string name="confirm_and_save">Confirm &amp; Save</string>
     <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="main_account">Main account</string>
     <string name="discard">Discard</string>
     <string name="stay">Stay</string>
     <string name="discard_changes_title">Discard changes?</string>
@@ -127,7 +129,6 @@
     <string name="save_failed">Unable to save transaction</string>
     <string name="delete_failed">Unable to delete transaction</string>
     <string name="delete_data_failed">Unable to delete data</string>
-    <string name="receipt_scanning_soon">Receipt scanning is coming soon.</string>
     <string name="privacy_policy_message">ReceiptAI stores your transaction data locally on this device so you can view your balance, history, and analytics. Your data is not shared with third parties.</string>
     <string name="complete_required_fields">Please complete all required fields.</string>
     <string name="required_fields">Required: %1$s.</string>
@@ -160,4 +161,7 @@
     </plurals>
     <string name="navigate_back">Navigate up</string>
     <string name="unable_to_load_expenses">Unable to load expenses</string>
+    <string name="scanning_receipt">Scanning receipt…</string>
+    <string name="receipt_scan_failed">Couldn\'t read the receipt, please add details manually.</string>
+    <string name="offline_scan_message">No internet connection. Please enter the details manually.</string>
 </resources>

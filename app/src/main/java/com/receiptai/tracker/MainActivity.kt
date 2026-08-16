@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
@@ -100,12 +101,7 @@ class MainActivity : FragmentActivity() {
                             modifier = Modifier.fillMaxSize(),
                             color = ReceiptAIBackground
                         ) {
-                            if (currentSettings.isAppLockEnabled && isLocked) {
-                                LockScreen(
-                                    biometricUnlockEnabled = currentSettings.biometricUnlockEnabled,
-                                    onUnlocked = mainViewModel::unlock
-                                )
-                            } else {
+                            Box(modifier = Modifier.fillMaxSize()) {
                                 DashboardRoute(
                                     viewModel = hiltViewModel(),
                                     themeMode = themeMode,
@@ -123,6 +119,12 @@ class MainActivity : FragmentActivity() {
                                     appLockEnabled = currentSettings.isAppLockEnabled,
                                     biometricUnlockEnabled = currentSettings.biometricUnlockEnabled
                                 )
+                                if (currentSettings.isAppLockEnabled && isLocked) {
+                                    LockScreen(
+                                        biometricUnlockEnabled = currentSettings.biometricUnlockEnabled,
+                                        onUnlocked = mainViewModel::unlock
+                                    )
+                                }
                             }
                         }
                     }

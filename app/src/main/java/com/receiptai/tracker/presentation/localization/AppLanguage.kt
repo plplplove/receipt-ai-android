@@ -88,6 +88,8 @@ data class ReceiptAIStrings(
     val saving: String,
     val confirmAndSave: String,
     val cancel: String,
+    val close: String,
+    val mainAccount: String,
     val discard: String,
     val stay: String,
     val discardChangesTitle: String,
@@ -155,7 +157,9 @@ data class ReceiptAIStrings(
     val deleteFailed: String,
     val deleteDataFailed: String,
     val loadFailed: String,
-    val receiptScanningSoon: String,
+    val scanningReceipt: String,
+    val receiptScanFailed: String,
+    val offlineScanMessage: String,
     val privacyPolicyMessage: String,
     val completeRequiredFields: String,
     val requiredFields: (String) -> String,
@@ -294,8 +298,12 @@ data class ReceiptAIStrings(
             deleteFailed = resources.string(R.string.delete_failed),
             deleteDataFailed = resources.string(R.string.delete_data_failed),
             loadFailed = resources.string(R.string.unable_to_load_expenses),
-            receiptScanningSoon = resources.string(R.string.receipt_scanning_soon),
+            scanningReceipt = resources.string(R.string.scanning_receipt),
+            receiptScanFailed = resources.string(R.string.receipt_scan_failed),
+            offlineScanMessage = resources.string(R.string.offline_scan_message),
             privacyPolicyMessage = resources.string(R.string.privacy_policy_message),
+            close = resources.string(R.string.close),
+            mainAccount = resources.string(R.string.main_account),
             completeRequiredFields = resources.string(R.string.complete_required_fields),
             requiredFields = { resources.string(R.string.required_fields, it) },
             categoryLabel = { value -> resources.localizedCategory(value) },
@@ -374,12 +382,13 @@ fun Context.createReceiptAILanguageContext(language: AppLanguage): Context {
 }
 
 fun ReceiptAIStrings.localizedError(message: String): String = when (message) {
-    "Receipt scanning is coming soon." -> receiptScanningSoon
     "Transaction not found" -> transactionNotFound
     "Please complete all required fields." -> completeRequiredFields
     "Unable to save transaction" -> saveFailed
     "Unable to delete transaction" -> deleteFailed
     "Unable to delete data" -> deleteDataFailed
     "Unable to load expenses" -> loadFailed
+    "Couldn't read the receipt, please add details manually." -> receiptScanFailed
+    "No internet connection. Please enter the details manually." -> offlineScanMessage
     else -> message
 }

@@ -58,6 +58,8 @@
     <string name="saving">Zapisywanie…</string>
     <string name="confirm_and_save">Potwierdź i zapisz</string>
     <string name="cancel">Anuluj</string>
+    <string name="close">Zamknij</string>
+    <string name="main_account">Główne konto</string>
     <string name="discard">Odrzuć</string>
     <string name="stay">Pozostań</string>
     <string name="discard_changes_title">Odrzucić zmiany?</string>
@@ -112,7 +114,6 @@
     <string name="save_failed">Nie udało się zapisać transakcji</string>
     <string name="delete_failed">Nie udało się usunąć transakcji</string>
     <string name="delete_data_failed">Nie udało się usunąć danych</string>
-    <string name="receipt_scanning_soon">Skanowanie paragonów będzie dostępne wkrótce.</string>
     <string name="privacy_policy_message">ReceiptAI przechowuje dane transakcji lokalnie na tym urządzeniu, aby umożliwić przeglądanie salda, historii i analityki. Dane nie są udostępniane stronom trzecim.</string>
     <string name="complete_required_fields">Uzupełnij wszystkie wymagane pola.</string>
     <string name="required_fields">Wymagane: %1$s.</string>
@@ -160,4 +161,7 @@
     <string name="biometric_prompt_title">Odblokuj ReceiptAI</string>
     <string name="navigate_back">Wstecz</string>
     <string name="unable_to_load_expenses">Nie udało się wczytać wydatków</string>
+    <string name="scanning_receipt">Skanowanie paragonu…</string>
+    <string name="receipt_scan_failed">Nie udało się odczytać paragonu, uzupełnij dane ręcznie.</string>
+    <string name="offline_scan_message">Brak połączenia z internetem. Wprowadź dane ręcznie.</string>
 </resources>

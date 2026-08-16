@@ -42,7 +42,7 @@ fun ReceiptAIInfoDialog(
     message: String,
     onDismiss: () -> Unit,
     icon: ImageVector = Icons.Default.Info,
-    buttonLabel: String = "Close"
+    buttonLabel: String
 ) {
     Dialog(
         onDismissRequest = onDismiss,

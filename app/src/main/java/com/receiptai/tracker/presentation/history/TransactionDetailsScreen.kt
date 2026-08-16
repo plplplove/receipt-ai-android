@@ -4,8 +4,10 @@ package com.receiptai.tracker.presentation.history
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,7 +57,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,8 +72,10 @@ import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
 import com.receiptai.tracker.ui.theme.ReceiptAIMint
 import com.receiptai.tracker.presentation.components.ReceiptAIConfirmationDialog
+import com.receiptai.tracker.presentation.components.ReceiptFullScreenViewer
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
+import com.receiptai.tracker.presentation.components.rememberReceiptBitmap
 import com.receiptai.tracker.presentation.localization.receiptAIStrings
 
 private val DeleteRed = Color(0xFFC62828)
@@ -88,6 +94,7 @@ data class TransactionDetailsUiState(
     val account: String = "",
     val category: String = "",
     val notes: String = "",
+    val receiptImagePath: String? = null,
     val originalAmountMinorUnits: Long = amountMinorUnits,
     val originalCurrency: String = currency
 )
@@ -101,6 +108,7 @@ fun TransactionDetailsScreen(
     modifier: Modifier = Modifier
 ) {
     var isDeleteDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var isReceiptViewerVisible by rememberSaveable { mutableStateOf(false) }
     val strings = receiptAIStrings()
 
     BackHandler(onBack = onBack)
@@ -160,7 +168,10 @@ fun TransactionDetailsScreen(
                 TransactionSummaryCard(transaction = transaction)
             }
             item {
-                TransactionInformationCard(transaction = transaction)
+                TransactionInformationCard(
+                    transaction = transaction,
+                    onReceiptImageClick = { isReceiptViewerVisible = true }
+                )
             }
         }
     }
@@ -178,6 +189,14 @@ fun TransactionDetailsScreen(
                 onDelete()
             },
             onDismiss = { isDeleteDialogVisible = false }
+        )
+    }
+
+    if (isReceiptViewerVisible) {
+        ReceiptFullScreenViewer(
+            receiptImagePath = transaction.receiptImagePath,
+            contentDescription = strings.receiptImage,
+            onDismiss = { isReceiptViewerVisible = false }
         )
     }
 }
@@ -261,7 +280,10 @@ private fun TransactionSummaryCard(transaction: TransactionDetailsUiState) {
 }
 
 @Composable
-private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
+private fun TransactionInformationCard(
+    transaction: TransactionDetailsUiState,
+    onReceiptImageClick: () -> Unit
+) {
     val strings = receiptAIStrings()
     val categoryStyle = categoryVisualStyle(transaction.category)
     Card(
@@ -299,7 +321,10 @@ private fun TransactionInformationCard(transaction: TransactionDetailsUiState) {
                 iconContainerColor = categoryStyle.container
             )
             NotesRow(notes = transaction.notes)
-            ReceiptPlaceholder()
+            ReceiptSection(
+                receiptImagePath = transaction.receiptImagePath,
+                onImageClick = onReceiptImageClick
+            )
         }
     }
 }
@@ -374,42 +399,60 @@ private fun NotesRow(notes: String) {
 }
 
 @Composable
-private fun ReceiptPlaceholder() {
+private fun ReceiptSection(
+    receiptImagePath: String?,
+    onImageClick: () -> Unit
+) {
     val strings = receiptAIStrings()
+    val bitmap by rememberReceiptBitmap(receiptImagePath)
     Column(modifier = Modifier.padding(top = 12.dp)) {
         Text(
-            text = receiptAIStrings().receipt,
+            text = strings.receipt,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = ReceiptAIPrimaryText
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(PlaceholderBackground)
-                .border(
-                    width = 1.dp,
-                    color = ReceiptAISecondaryText.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(14.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.Receipt,
-                    contentDescription = null,
-                    tint = ReceiptAIDeepPurple,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = receiptAIStrings().receiptImage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ReceiptAISecondaryText
-                )
+        val decodedBitmap = bitmap
+        if (decodedBitmap != null) {
+            Image(
+                bitmap = decodedBitmap.asImageBitmap(),
+                contentDescription = strings.receiptImage,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(onClick = onImageClick)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(PlaceholderBackground)
+                    .border(
+                        width = 1.dp,
+                        color = ReceiptAISecondaryText.copy(alpha = 0.18f),
+                        shape = RoundedCornerShape(14.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Receipt,
+                        contentDescription = null,
+                        tint = ReceiptAIDeepPurple,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = strings.receiptImage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReceiptAISecondaryText
+                    )
+                }
             }
         }
     }

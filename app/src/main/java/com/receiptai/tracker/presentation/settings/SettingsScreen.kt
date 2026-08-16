@@ -158,6 +158,14 @@ fun SettingsScreen(
                     SecurityEvent.WrongPin -> {
                         pinError = true
                         pinErrorCount += 1
+                        if (
+                            pinOverlayMode == PinOverlayMode.CHANGE &&
+                            pinStage != PinStage.ENTER_CURRENT
+                        ) {
+                            pinStage = PinStage.ENTER_CURRENT
+                            firstNewPin = ""
+                            currentPin = ""
+                        }
                     }
                 }
             }
@@ -391,6 +399,7 @@ fun SettingsScreen(
             title = strings.privacyPolicy,
             message = strings.privacyPolicyMessage,
             icon = Icons.Default.Shield,
+            buttonLabel = strings.close,
             onDismiss = { showPrivacyPolicy = false }
         )
     }

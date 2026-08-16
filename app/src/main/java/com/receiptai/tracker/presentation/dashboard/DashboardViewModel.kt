@@ -2,9 +2,13 @@ package com.receiptai.tracker.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.receiptai.tracker.data.net.ConnectivityChecker
 import com.receiptai.tracker.domain.model.Expense
+import com.receiptai.tracker.domain.model.ScannedReceipt
 import com.receiptai.tracker.domain.money.CurrencyConverter
 import com.receiptai.tracker.domain.repository.ExpenseRepository
+import com.receiptai.tracker.domain.repository.ReceiptImageStore
+import com.receiptai.tracker.domain.repository.ReceiptParser
 import com.receiptai.tracker.presentation.components.categoryAccentArgb
 import com.receiptai.tracker.presentation.components.parsePositiveAmount
 import com.receiptai.tracker.presentation.expense.AddEditTransactionUiState
@@ -19,6 +23,7 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +37,10 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val receiptParser: ReceiptParser,
+    private val receiptImageStore: ReceiptImageStore,
+    private val connectivityChecker: ConnectivityChecker
 ) : ViewModel() {
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
@@ -46,8 +54,8 @@ class DashboardViewModel @Inject constructor(
         when (intent) {
             DashboardIntent.AddExpenseClicked -> showAddExpenseSheet()
             DashboardIntent.AddExpenseDismissed -> dismissAddExpenseSheet()
-            DashboardIntent.ScanReceiptClicked -> showScanReceiptUnavailableMessage()
             DashboardIntent.AddExpenseManuallyClicked -> startAddingTransaction()
+            is DashboardIntent.ReceiptCaptured -> handleCapturedReceipt(intent.imageBytes)
             is DashboardIntent.TransactionSelected -> showTransactionDetails(intent.transactionId)
             DashboardIntent.TransactionDetailsDismissed -> closeTransactionFlow()
             DashboardIntent.EditTransactionClicked -> startEditingTransaction()
@@ -72,12 +80,45 @@ class DashboardViewModel @Inject constructor(
         _state.update { it.copy(isAddExpenseSheetVisible = false) }
     }
 
-    private fun showScanReceiptUnavailableMessage() {
+    private fun handleCapturedReceipt(imageBytes: ByteArray) {
         _state.update {
             it.copy(
+                isScanningReceipt = true,
                 isAddExpenseSheetVisible = false,
-                errorMessage = "Receipt scanning is coming soon."
+                errorMessage = null
             )
+        }
+        viewModelScope.launch {
+            val savedImagePath = receiptImageStore.saveReceiptImage(imageBytes)
+            val hasConnection = connectivityChecker.hasConnection()
+            var errorMessage: String? = null
+            val form = if (!hasConnection) {
+                errorMessage = OFFLINE_SCAN_MESSAGE
+                AddEditTransactionUiState(receiptImagePath = savedImagePath)
+            } else {
+                val scannedReceipt = runCatching {
+                    receiptParser.parseReceipt(imageBytes)
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                }.getOrNull()
+                if (scannedReceipt != null) {
+                    scannedReceipt.toFormState(_state.value.currency)
+                        .copy(receiptImagePath = savedImagePath)
+                } else {
+                    errorMessage = RECEIPT_SCAN_FAILED_MESSAGE
+                    AddEditTransactionUiState(receiptImagePath = savedImagePath)
+                }
+            }
+            _state.update { current ->
+                current.copy(
+                    isScanningReceipt = false,
+                    transactionFlowScreen = TransactionFlowScreen.ADD,
+                    selectedTransactionId = null,
+                    transactionForm = form,
+                    transactionFormInitial = form,
+                    errorMessage = errorMessage ?: current.errorMessage
+                )
+            }
         }
     }
 
@@ -88,6 +129,7 @@ class DashboardViewModel @Inject constructor(
                 transactionFlowScreen = TransactionFlowScreen.ADD,
                 selectedTransactionId = null,
                 transactionForm = AddEditTransactionUiState(),
+                transactionFormInitial = AddEditTransactionUiState(),
                 errorMessage = null
             )
         }
@@ -110,9 +152,11 @@ class DashboardViewModel @Inject constructor(
     private fun startEditingTransaction() {
         _state.update { current ->
             val transaction = current.selectedTransaction ?: return@update current
+            val form = transaction.toFormState()
             current.copy(
                 transactionFlowScreen = TransactionFlowScreen.EDIT,
-                transactionForm = transaction.toFormState(),
+                transactionForm = form,
+                transactionFormInitial = form,
                 errorMessage = null
             )
         }
@@ -137,6 +181,7 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun dismissTransactionEditor() {
+        deleteAbandonedReceiptImage(_state.value)
         _state.update { current ->
             val destination = if (
                 current.transactionFlowScreen == TransactionFlowScreen.EDIT &&
@@ -149,6 +194,7 @@ class DashboardViewModel @Inject constructor(
             current.copy(
                 transactionFlowScreen = destination,
                 transactionForm = AddEditTransactionUiState(),
+                transactionFormInitial = AddEditTransactionUiState(),
                 isSaving = false,
                 errorMessage = null
             )
@@ -161,6 +207,7 @@ class DashboardViewModel @Inject constructor(
                 transactionFlowScreen = TransactionFlowScreen.NONE,
                 selectedTransactionId = null,
                 transactionForm = AddEditTransactionUiState(),
+                transactionFormInitial = AddEditTransactionUiState(),
                 isSaving = false,
                 errorMessage = null
             )
@@ -168,13 +215,24 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun selectDestination(destination: DashboardDestination) {
+        deleteAbandonedReceiptImage(_state.value)
         _state.update {
             it.copy(
                 selectedDestination = destination,
                 transactionFlowScreen = TransactionFlowScreen.NONE,
                 selectedTransactionId = null,
+                transactionForm = AddEditTransactionUiState(),
+                transactionFormInitial = AddEditTransactionUiState(),
                 isAddExpenseSheetVisible = false
             )
+        }
+    }
+
+    private fun deleteAbandonedReceiptImage(state: DashboardState) {
+        val imagePath = state.transactionForm.receiptImagePath ?: return
+        if (state.transactionFlowScreen != TransactionFlowScreen.ADD) return
+        viewModelScope.launch {
+            receiptImageStore.deleteReceiptImage(imagePath)
         }
     }
 
@@ -207,12 +265,14 @@ class DashboardViewModel @Inject constructor(
                             },
                             selectedTransactionId = if (wasEditing) expense.id else null,
                             transactionForm = AddEditTransactionUiState(),
+                            transactionFormInitial = AddEditTransactionUiState(),
                             isSaving = false,
                             errorMessage = null
                         )
                     }
                 }
                 .onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
                     _state.update {
                         it.copy(
                             isSaving = false,
@@ -236,12 +296,14 @@ class DashboardViewModel @Inject constructor(
                             transactionFlowScreen = TransactionFlowScreen.NONE,
                             selectedTransactionId = null,
                             transactionForm = AddEditTransactionUiState(),
+                            transactionFormInitial = AddEditTransactionUiState(),
                             isSaving = false,
                             errorMessage = null
                         )
                     }
                 }
                 .onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
                     _state.update {
                         it.copy(
                             isSaving = false,
@@ -267,6 +329,7 @@ class DashboardViewModel @Inject constructor(
                     }
                 }
                 .onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
                     _state.update {
                         it.copy(
                             isSaving = false,
@@ -298,6 +361,44 @@ class DashboardViewModel @Inject constructor(
     }
 }
 
+private const val RECEIPT_SCAN_FAILED_MESSAGE =
+    "Couldn't read the receipt, please add details manually."
+
+private const val OFFLINE_SCAN_MESSAGE =
+    "No internet connection. Please enter the details manually."
+
+private val SupportedReceiptCurrencies = setOf(
+    "USD", "EUR", "GBP", "PLN", "CAD", "AUD", "JPY"
+)
+
+private val SupportedReceiptCategories = listOf(
+    "Food & Dining",
+    "Transport",
+    "Shopping",
+    "Health",
+    "Housing",
+    "Utilities",
+    "Other"
+)
+
+private fun ScannedReceipt.toFormState(displayCurrency: String): AddEditTransactionUiState =
+    AddEditTransactionUiState(
+        merchantName = merchantName,
+        totalAmount = totalAmount,
+        dateMillis = dateEpochMillis,
+        dateText = dateEpochMillis?.let { millis ->
+            SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(millis)
+        }.orEmpty(),
+        currencyCode = if (currencyCode in SupportedReceiptCurrencies) {
+            currencyCode
+        } else {
+            displayCurrency.ifBlank { "USD" }
+        },
+        category = SupportedReceiptCategories.firstOrNull { it.equals(category, ignoreCase = true) }
+            ?: "Other",
+        notes = ""
+    )
+
 private fun AddEditTransactionUiState.toExpenseOrNull(id: String): Expense? = runCatching {
     val amount = parsePositiveAmount(totalAmount) ?: return@runCatching null
     val currency = Currency.getInstance(currencyCode)
@@ -319,7 +420,8 @@ private fun AddEditTransactionUiState.toExpenseOrNull(id: String): Expense? = ru
         currency = currency.currencyCode,
         dateTimestamp = timestamp,
         category = selectedCategory,
-        notes = notes.trim()
+        notes = notes.trim(),
+        receiptImagePath = receiptImagePath
     )
 }.getOrNull()
 
@@ -349,7 +451,8 @@ private fun Expense.toFormState(): AddEditTransactionUiState {
             TransactionType.INCOME
         } else {
             TransactionType.EXPENSE
-        }
+        },
+        receiptImagePath = receiptImagePath
     )
 }
 

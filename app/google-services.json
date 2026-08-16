@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "773447597094",
+    "project_id": "receiptai-8f365",
+    "storage_bucket": "receiptai-8f365.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:773447597094:android:5ac414447d32c660e6fae7",
+        "android_client_info": {
+          "package_name": "com.receiptai.tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYomF1FsiUnWFbMAkGWk6z9RYg0FqYUlI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -58,6 +58,8 @@
     <string name="saving">Wird gespeichert…</string>
     <string name="confirm_and_save">Bestätigen &amp; speichern</string>
     <string name="cancel">Abbrechen</string>
+    <string name="close">Schließen</string>
+    <string name="main_account">Hauptkonto</string>
     <string name="discard">Verwerfen</string>
     <string name="stay">Bleiben</string>
     <string name="discard_changes_title">Änderungen verwerfen?</string>
@@ -112,7 +114,6 @@
     <string name="save_failed">Transaktion konnte nicht gespeichert werden</string>
     <string name="delete_failed">Transaktion konnte nicht gelöscht werden</string>
     <string name="delete_data_failed">Daten konnten nicht gelöscht werden</string>
-    <string name="receipt_scanning_soon">Das Scannen von Belegen ist bald verfügbar.</string>
     <string name="privacy_policy_message">ReceiptAI speichert deine Transaktionsdaten lokal auf diesem Gerät, damit du Saldo, Verlauf und Analysen ansehen kannst. Deine Daten werden nicht an Dritte weitergegeben.</string>
     <string name="complete_required_fields">Fülle alle Pflichtfelder aus.</string>
     <string name="required_fields">Erforderlich: %1$s.</string>
@@ -158,4 +159,7 @@
     <string name="biometric_prompt_title">ReceiptAI entsperren</string>
     <string name="navigate_back">Zurück</string>
     <string name="unable_to_load_expenses">Ausgaben konnten nicht geladen werden</string>
+    <string name="scanning_receipt">Beleg wird gescannt…</string>
+    <string name="receipt_scan_failed">Beleg konnte nicht gelesen werden, bitte Daten manuell eingeben.</string>
+    <string name="offline_scan_message">Keine Internetverbindung. Bitte gib die Daten manuell ein.</string>
 </resources>
