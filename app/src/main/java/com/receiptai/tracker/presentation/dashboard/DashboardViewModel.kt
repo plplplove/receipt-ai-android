@@ -19,7 +19,6 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +44,6 @@ class DashboardViewModel @Inject constructor(
 
     fun onIntent(intent: DashboardIntent) {
         when (intent) {
-            DashboardIntent.Refresh -> observeExpenses()
             DashboardIntent.AddExpenseClicked -> showAddExpenseSheet()
             DashboardIntent.AddExpenseDismissed -> dismissAddExpenseSheet()
             DashboardIntent.ScanReceiptClicked -> showScanReceiptUnavailableMessage()
@@ -127,7 +125,7 @@ class DashboardViewModel @Inject constructor(
     private fun changeDisplayCurrency(currencyCode: String) {
         val normalizedCurrency = currencyCode.uppercase(Locale.US)
         _state.update { currentState ->
-            if (currentState.expenses.isEmpty()) {
+            if (currentState.currency == normalizedCurrency || currentState.expenses.isEmpty()) {
                 currentState.copy(currency = normalizedCurrency)
             } else {
                 currentState.fromExpenses(
@@ -419,8 +417,7 @@ private fun DashboardState.fromExpenses(
             transactionFlowScreen
         } else {
             TransactionFlowScreen.NONE
-        },
-        errorMessage = null
+        }
     )
 }
 
@@ -446,18 +443,25 @@ internal fun calculateCategoryPercentages(amounts: List<Long>): List<Int> {
     val total = positiveAmounts.sum()
     if (total == 0L) return List(amounts.size) { 0 }
 
-    val percentages = positiveAmounts.map { amount ->
-        if (amount == 0L) {
-            0
-        } else {
-            ((amount.toDouble() / total) * 100.0).roundToInt().coerceAtLeast(1)
+    val exactShares = positiveAmounts.map { amount -> amount * 100.0 / total }
+    val percentages = exactShares.map { it.toInt() }.toMutableList()
+    var remainder = 100 - percentages.sum()
+    val byLargestFraction = exactShares.indices
+        .sortedByDescending { index -> exactShares[index] - percentages[index] }
+    var cursor = 0
+    while (remainder > 0) {
+        percentages[byLargestFraction[cursor % byLargestFraction.size]] += 1
+        remainder -= 1
+        cursor += 1
+    }
+    positiveAmounts.forEachIndexed { index, amount ->
+        if (amount > 0L && percentages[index] == 0) {
+            val largestIndex = positiveAmounts.indices.maxBy { positiveAmounts[it] }
+            if (percentages[largestIndex] > 1) {
+                percentages[largestIndex] -= 1
+            }
+            percentages[index] = 1
         }
-    }.toMutableList()
-    val adjustment = 100 - percentages.sum()
-    if (adjustment != 0) {
-        val largestCategoryIndex = positiveAmounts.indices.maxBy { positiveAmounts[it] }
-        percentages[largestCategoryIndex] =
-            (percentages[largestCategoryIndex] + adjustment).coerceAtLeast(0)
     }
     return percentages
 }

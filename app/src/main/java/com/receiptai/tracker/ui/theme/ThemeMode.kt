@@ -1,12 +1,11 @@
 package com.receiptai.tracker.ui.theme
 
 enum class ThemeMode(
-    val storageValue: String,
-    val label: String
+    val storageValue: String
 ) {
-    SYSTEM_DEFAULT("system", "System Default"),
-    LIGHT("light", "Light"),
-    DARK("dark", "Dark");
+    SYSTEM_DEFAULT("system"),
+    LIGHT("light"),
+    DARK("dark");
 
     companion object {
         fun fromStorageValue(value: String?): ThemeMode =

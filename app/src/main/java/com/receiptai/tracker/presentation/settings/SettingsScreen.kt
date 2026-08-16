@@ -1,4 +1,5 @@
 package com.receiptai.tracker.presentation.settings
+import androidx.biometric.BiometricManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,12 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,8 +40,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -78,19 +85,22 @@ private val SettingsRowShape = RoundedCornerShape(16.dp)
 
 private data class DisplayCurrencyOption(
     val code: String,
-    val name: String,
     val symbol: String
 )
 
 private val DisplayCurrencyOptions = listOf(
-    DisplayCurrencyOption("USD", "US Dollar", "$"),
-    DisplayCurrencyOption("EUR", "Euro", "€"),
-    DisplayCurrencyOption("GBP", "British Pound", "£"),
-    DisplayCurrencyOption("PLN", "Polish Złoty", "zł"),
-    DisplayCurrencyOption("CAD", "Canadian Dollar", "CA$"),
-    DisplayCurrencyOption("AUD", "Australian Dollar", "A$"),
-    DisplayCurrencyOption("JPY", "Japanese Yen", "¥")
+    DisplayCurrencyOption("USD", "$"),
+    DisplayCurrencyOption("EUR", "€"),
+    DisplayCurrencyOption("GBP", "£"),
+    DisplayCurrencyOption("PLN", "zł"),
+    DisplayCurrencyOption("CAD", "CA$"),
+    DisplayCurrencyOption("AUD", "A$"),
+    DisplayCurrencyOption("JPY", "¥")
 )
+
+private enum class PinOverlayMode { SETUP, DISABLE, CHANGE }
+
+private enum class PinStage { ENTER_CURRENT, ENTER_NEW, CONFIRM_NEW }
 
 @Composable
 fun SettingsScreen(
@@ -101,21 +111,101 @@ fun SettingsScreen(
     onAddExpenseClick: () -> Unit = {},
     onDeleteAllData: () -> Unit = {},
     onExportData: () -> Unit = {},
-    onPrivacyPolicyClick: () -> Unit = {},
     appLanguage: AppLanguage = AppLanguage.ENGLISH,
     onLanguageSelected: (AppLanguage) -> Unit = {},
-    onCurrencyClick: () -> Unit = {},
     currencyCode: String = "USD",
     onCurrencySelected: (String) -> Unit = {},
-    onAppLockChanged: (Boolean) -> Unit = {}
+    appLockEnabled: Boolean = false,
+    biometricUnlockEnabled: Boolean = false,
+    securityViewModel: SettingsViewModel? = null
 ) {
-    var appLockEnabled by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val isBiometricAvailable = remember {
+        BiometricManager.from(context).canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_WEAK
+        ) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    var pinOverlayMode by rememberSaveable { mutableStateOf<PinOverlayMode?>(null) }
+    var pinStage by rememberSaveable { mutableStateOf(PinStage.ENTER_CURRENT) }
+    var pinError by rememberSaveable { mutableStateOf(false) }
+    var pinErrorCount by rememberSaveable { mutableIntStateOf(0) }
+    var firstNewPin by remember { mutableStateOf("") }
+    var currentPin by remember { mutableStateOf("") }
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showThemeSelector by rememberSaveable { mutableStateOf(false) }
     var showCurrencySelector by rememberSaveable { mutableStateOf(false) }
     var showLanguageSelector by rememberSaveable { mutableStateOf(false) }
     val strings = receiptAIStrings()
+
+    fun closePinOverlay() {
+        pinOverlayMode = null
+        pinStage = PinStage.ENTER_CURRENT
+        pinError = false
+        firstNewPin = ""
+        currentPin = ""
+    }
+
+    val events = securityViewModel?.events
+    if (events != null) {
+        LaunchedEffect(events) {
+            events.collect { event ->
+                when (event) {
+                    SecurityEvent.AppLockEnabled,
+                    SecurityEvent.AppLockDisabled,
+                    SecurityEvent.PinChanged -> closePinOverlay()
+                    SecurityEvent.WrongPin -> {
+                        pinError = true
+                        pinErrorCount += 1
+                    }
+                }
+            }
+        }
+    }
+
+    fun onOverlayPinEntered(pin: String) {
+        when (pinStage) {
+            PinStage.ENTER_CURRENT -> when (pinOverlayMode) {
+                PinOverlayMode.DISABLE -> securityViewModel?.disableAppLock(pin)
+                PinOverlayMode.CHANGE -> {
+                    currentPin = pin
+                    pinError = false
+                    pinStage = PinStage.ENTER_NEW
+                }
+                else -> closePinOverlay()
+            }
+            PinStage.ENTER_NEW -> {
+                firstNewPin = pin
+                pinError = false
+                pinStage = PinStage.CONFIRM_NEW
+            }
+            PinStage.CONFIRM_NEW -> {
+                if (pin == firstNewPin) {
+                    when (pinOverlayMode) {
+                        PinOverlayMode.SETUP -> securityViewModel?.enableAppLock(pin)
+                        PinOverlayMode.CHANGE -> securityViewModel?.changeAppPin(currentPin, pin)
+                        else -> closePinOverlay()
+                    }
+                } else {
+                    pinError = true
+                    pinStage = PinStage.ENTER_NEW
+                }
+            }
+        }
+    }
+
+    val overlayStrings = when (pinStage) {
+        PinStage.ENTER_CURRENT -> strings.appLockEnterCurrentPin to strings.appLockSubtitle
+        PinStage.ENTER_NEW -> strings.appLockEnterNewPin to strings.appLockEnterNewPinSubtitle
+        PinStage.CONFIRM_NEW -> strings.appLockConfirmPin to strings.appLockConfirmPinSubtitle
+    }
+    val overlayTitle = when (pinOverlayMode) {
+        PinOverlayMode.SETUP -> strings.appLockSetupTitle
+        PinOverlayMode.DISABLE -> strings.appLockDisableTitle
+        PinOverlayMode.CHANGE -> strings.changePin
+        else -> strings.appLockSetupTitle
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -160,7 +250,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.Language,
                         title = strings.language,
-                        value = appLanguage.nativeLabel,
+                        value = strings.languageName(appLanguage.storageValue),
                         contentDescription = strings.language,
                         onClick = {
                             showLanguageSelector = true
@@ -172,7 +262,6 @@ fun SettingsScreen(
                         title = strings.currency,
                         value = displayCurrencyLabel(currencyCode),
                         onClick = {
-                            onCurrencyClick()
                             showCurrencySelector = true
                         }
                     )
@@ -187,8 +276,13 @@ fun SettingsScreen(
                             Switch(
                                 checked = appLockEnabled,
                                 onCheckedChange = { enabled ->
-                                    appLockEnabled = enabled
-                                    onAppLockChanged(enabled)
+                                    if (enabled) {
+                                        pinOverlayMode = PinOverlayMode.SETUP
+                                        pinStage = PinStage.ENTER_NEW
+                                    } else {
+                                        pinOverlayMode = PinOverlayMode.DISABLE
+                                        pinStage = PinStage.ENTER_CURRENT
+                                    }
                                 },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = ReceiptAISurface,
@@ -201,6 +295,41 @@ fun SettingsScreen(
                             )
                         }
                     )
+                    if (appLockEnabled) {
+                        SettingsDivider()
+                        if (isBiometricAvailable) {
+                            SettingsRow(
+                                icon = Icons.Default.Fingerprint,
+                                title = strings.unlockWithBiometrics,
+                                trailing = {
+                                    Switch(
+                                        checked = biometricUnlockEnabled,
+                                        onCheckedChange = { enabled ->
+                                            securityViewModel?.setBiometricUnlockEnabled(enabled)
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = ReceiptAISurface,
+                                            checkedTrackColor = ReceiptAIMint,
+                                            checkedBorderColor = ReceiptAIMint,
+                                            uncheckedThumbColor = ReceiptAISurface,
+                                            uncheckedTrackColor = ReceiptAISecondaryText.copy(alpha = 0.28f),
+                                            uncheckedBorderColor = ReceiptAISecondaryText.copy(alpha = 0.45f)
+                                        )
+                                    )
+                                }
+                            )
+                            SettingsDivider()
+                        }
+                        SettingsRow(
+                            icon = Icons.Default.Password,
+                            title = strings.changePin,
+                            trailing = { SettingsChevron() },
+                            onClick = {
+                                pinOverlayMode = PinOverlayMode.CHANGE
+                                pinStage = PinStage.ENTER_CURRENT
+                            }
+                        )
+                    }
                 }
             }
             item {
@@ -222,7 +351,6 @@ fun SettingsScreen(
                         title = strings.privacyPolicy,
                         trailing = { SettingsChevron() },
                         onClick = {
-                            onPrivacyPolicyClick()
                             showPrivacyPolicy = true
                         }
                     )
@@ -297,6 +425,26 @@ fun SettingsScreen(
                 showLanguageSelector = false
                 onLanguageSelected(selectedLanguage)
             }
+        )
+    }
+
+    if (pinOverlayMode != null) {
+        PinEntryOverlay(
+            title = overlayTitle,
+            subtitle = overlayStrings.second,
+            errorText = if (pinError) {
+                if (pinStage == PinStage.CONFIRM_NEW || pinStage == PinStage.ENTER_NEW) {
+                    strings.appLockPinsDontMatch
+                } else {
+                    strings.appLockWrongPin
+                }
+            } else {
+                null
+            },
+            errorMarker = pinErrorCount,
+            onPinEntered = ::onOverlayPinEntered,
+            onCancel = ::closePinOverlay,
+            cancelLabel = strings.cancel
         )
     }
 }
@@ -671,7 +819,7 @@ private fun LanguageOptionRow(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = language.nativeLabel,
+            text = receiptAIStrings().languageName(language.storageValue),
             style = MaterialTheme.typography.bodyLarge,
             color = ReceiptAIPrimaryText,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
@@ -682,7 +830,7 @@ private fun LanguageOptionRow(
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun SettingsScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         SettingsScreen()
     }
 }

@@ -17,12 +17,12 @@ fun List<Expense>.toReceiptAiCsv(): String = buildString {
     this@toReceiptAiCsv.forEach { expense ->
         appendCsvRow(
             expense.id,
-            expense.merchantName,
+            expense.merchantName.sanitizeCsvFormula(),
             expense.amountMinorUnits.toString(),
             expense.currency,
             dateFormatter.format(Date(expense.dateTimestamp)),
-            expense.category,
-            expense.notes
+            expense.category.sanitizeCsvFormula(),
+            expense.notes.sanitizeCsvFormula()
         )
     }
 }
@@ -52,3 +52,8 @@ private fun StringBuilder.appendCsvValue(value: String) {
     append(value.replace("\"", "\"\""))
     append('"')
 }
+
+private fun String.sanitizeCsvFormula(): String =
+    if (isNotEmpty() && first() in FORMULA_PREFIXES) "'$this" else this
+
+private const val FORMULA_PREFIXES = "=+-@"

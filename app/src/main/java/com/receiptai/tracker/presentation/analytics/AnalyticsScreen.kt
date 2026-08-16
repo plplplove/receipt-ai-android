@@ -1,5 +1,6 @@
 package com.receiptai.tracker.presentation.analytics
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -41,8 +44,7 @@ import com.receiptai.tracker.presentation.navigation.ReceiptAIBottomBar
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
-import com.receiptai.tracker.ui.theme.ReceiptAIMint
-import com.receiptai.tracker.ui.theme.ReceiptAIOnBrand
+import com.receiptai.tracker.ui.theme.ReceiptAIHeroGradient
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
@@ -111,46 +113,79 @@ private fun AnalyticsSummaryCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = ReceiptAIDeepPurple),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(22.dp)) {
-            Text(
-                text = receiptAIStrings().thisMonth(currency),
-                style = MaterialTheme.typography.titleMedium,
-                color = ReceiptAIOnBrand.copy(alpha = 0.78f)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = formatMoney(monthlySpendingMinorUnits, currency),
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = ReceiptAIOnBrand
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            Surface(
-                color = ReceiptAIOnBrand.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(ReceiptAIHeroGradient))
+        ) {
+            SummaryCardOrnaments()
+            Column(modifier = Modifier.padding(22.dp)) {
+                Text(
+                    text = receiptAIStrings().thisMonth(currency),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ReceiptAIPrimaryText.copy(alpha = 0.72f)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = formatMoney(monthlySpendingMinorUnits, currency),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = ReceiptAIPrimaryText
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Surface(
+                    color = ReceiptAIPrimaryText.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                        contentDescription = null,
-                        tint = ReceiptAIMint,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = receiptAIStrings().savedTransactions(transactionCount),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ReceiptAIOnBrand,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                            contentDescription = null,
+                            tint = ReceiptAIPrimaryText.copy(alpha = 0.78f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = receiptAIStrings().savedTransactions(transactionCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReceiptAIPrimaryText,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SummaryCardOrnaments() {
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(170.dp)
+    ) {
+        drawCircle(
+            color = Color.White.copy(alpha = 0.10f),
+            radius = size.minDimension * 0.40f,
+            center = Offset(
+                x = size.width * 0.10f,
+                y = size.height * 0.05f
+            )
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.07f),
+            radius = size.minDimension * 0.28f,
+            center = Offset(
+                x = size.width * 0.88f,
+                y = size.height * 0.70f
+            )
+        )
     }
 }
 
@@ -262,7 +297,7 @@ private fun EmptyAnalyticsCard() {
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun AnalyticsScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         AnalyticsScreen(
             monthlySpendingMinorUnits = 184_000,
             currency = "USD",

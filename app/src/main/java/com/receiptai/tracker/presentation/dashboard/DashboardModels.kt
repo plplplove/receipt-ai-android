@@ -55,7 +55,6 @@ data class DashboardState(
 }
 
 sealed interface DashboardIntent {
-    data object Refresh : DashboardIntent
     data object AddExpenseClicked : DashboardIntent
     data object AddExpenseDismissed : DashboardIntent
     data object ScanReceiptClicked : DashboardIntent

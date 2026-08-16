@@ -47,7 +47,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.receiptai.tracker.presentation.dashboard.DashboardDestination
 import com.receiptai.tracker.presentation.components.categoryVisualStyle
 import com.receiptai.tracker.presentation.components.formatMoney
@@ -83,7 +82,6 @@ fun TransactionHistoryScreen(
     transactions: List<HistoryTransaction> = emptyList(),
     onDestinationSelected: (DashboardDestination) -> Unit = {},
     onAddExpenseClick: () -> Unit = {},
-    onFilterClick: () -> Unit = {},
     onTransactionClick: (HistoryTransaction) -> Unit = {}
 ) {
     val strings = receiptAIStrings()
@@ -131,7 +129,6 @@ fun TransactionHistoryScreen(
                     query = query,
                     onQueryChange = { query = it },
                     onFilterClick = {
-                        onFilterClick()
                         isFilterSheetVisible = true
                     }
                 )
@@ -370,7 +367,7 @@ private fun EmptyHistoryState(hasTransactions: Boolean) {
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun TransactionHistoryScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         TransactionHistoryScreen()
     }
 }

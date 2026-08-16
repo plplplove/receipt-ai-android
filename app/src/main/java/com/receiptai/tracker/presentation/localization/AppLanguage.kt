@@ -1,15 +1,25 @@
 package com.receiptai.tracker.presentation.localization
 
+import android.content.Context
+import android.content.res.Configuration
+import android.content.res.Resources
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalContext
+import com.receiptai.tracker.R
+import java.util.Locale
 
 enum class AppLanguage(
-    val storageValue: String,
-    val nativeLabel: String
+    val storageValue: String
 ) {
-    ENGLISH("en", "English"),
-    UKRAINIAN("uk", "Українська");
+    ENGLISH("en"),
+    UKRAINIAN("uk"),
+    POLISH("pl"),
+    GERMAN("de"),
+    SPANISH("es");
 
     companion object {
         fun fromStorageValue(value: String?): AppLanguage =
@@ -63,7 +73,7 @@ data class ReceiptAIStrings(
     val addManually: String,
     val closeAddExpense: String,
     val editExpense: String,
-    val confirmDetails: String,
+    val navigateBack: String,
     val merchantNameRequired: String,
     val totalAmountRequired: String,
     val enterPositiveAmount: String,
@@ -78,7 +88,6 @@ data class ReceiptAIStrings(
     val saving: String,
     val confirmAndSave: String,
     val cancel: String,
-    val retakePhoto: String,
     val discard: String,
     val stay: String,
     val discardChangesTitle: String,
@@ -95,9 +104,25 @@ data class ReceiptAIStrings(
     val theme: String,
     val language: String,
     val languageSubtitle: String,
+    val languageName: (String) -> String,
     val currency: String,
     val security: String,
     val requirePinBiometrics: String,
+    val appLockTitle: String,
+    val appLockSubtitle: String,
+    val appLockWrongPin: String,
+    val appLockSetupTitle: String,
+    val appLockDisableTitle: String,
+    val appLockEnterCurrentPin: String,
+    val appLockEnterNewPin: String,
+    val appLockEnterNewPinSubtitle: String,
+    val appLockConfirmPin: String,
+    val appLockConfirmPinSubtitle: String,
+    val appLockPinsDontMatch: String,
+    val changePin: String,
+    val unlockWithBiometrics: String,
+    val usePin: String,
+    val biometricPromptTitle: String,
     val dataManagement: String,
     val exportToCsv: String,
     val about: String,
@@ -129,6 +154,7 @@ data class ReceiptAIStrings(
     val saveFailed: String,
     val deleteFailed: String,
     val deleteDataFailed: String,
+    val loadFailed: String,
     val receiptScanningSoon: String,
     val privacyPolicyMessage: String,
     val completeRequiredFields: String,
@@ -139,321 +165,213 @@ data class ReceiptAIStrings(
     val themeModeLabel: (String) -> String
 ) {
     companion object {
-        fun forLanguage(language: AppLanguage): ReceiptAIStrings = when (language) {
-            AppLanguage.ENGLISH -> english()
-            AppLanguage.UKRAINIAN -> ukrainian()
-        }
-
-        private fun english() = ReceiptAIStrings(
-            navigationHome = "Home",
-            navigationHistory = "History",
-            navigationAnalytics = "Analytics",
-            navigationSettings = "Settings",
-            home = "Home",
-            welcomeBack = "Welcome back",
-            totalBalance = "Total Balance",
-            convertedTo = { "Converted to $it" },
-            readyForNextExpense = "Ready for your next expense",
-            monthlySpending = { "Monthly Spending · $it" },
-            spendingInsights = "Your spending insights will appear here",
-            totalSpent = "Total Spent",
-            recentTransactions = "Recent Transactions",
-            seeAll = "See All",
-            noTransactions = "No transactions yet",
-            noMatchingTransactions = "No matching transactions",
-            tapToAddFirstExpense = "Tap + to add your first expense.",
-            merchant = "Merchant",
-            notSpecified = "Not specified",
-            uncategorized = "Uncategorized",
-            transactions = "Transactions",
-            searchTransactions = "Search transactions...",
-            filterTransactions = "Filter transactions",
-            details = "Details",
-            transactionDetails = "Transaction details",
-            date = "Date",
-            account = "Account",
-            category = "Category",
-            notes = "Notes",
-            noNotesAdded = "No notes added.",
-            receipt = "Receipt",
-            receiptImage = "Receipt image",
-            completed = "Completed",
-            original = { "Original: $it" },
-            delete = "Delete",
-            edit = "Edit",
-            deleteTransactionTitle = "Delete transaction?",
-            deleteTransactionMessage = "Are you sure you want to delete this transaction?",
-            addExpense = "Add Expense",
-            addExpenseSubtitle = "Choose how you want to log your expense.",
-            scanReceipt = "Scan Receipt",
-            addManually = "Add Manually",
-            closeAddExpense = "Close add expense sheet",
-            editExpense = "Edit Expense",
-            confirmDetails = "Confirm Details",
-            merchantNameRequired = "Merchant Name *",
-            totalAmountRequired = "Total Amount *",
-            enterPositiveAmount = "Enter a positive number, e.g. 14.50.",
-            dateRequired = "Date *",
-            categoryRequired = "Category *",
-            currencyRequired = "Currency *",
-            notesOptional = "Notes (Optional)",
-            transactionTypeRequired = "Transaction type *",
-            expense = "Expense",
-            income = "Income",
-            chooseDate = "Choose date",
-            saving = "Saving…",
-            confirmAndSave = "Confirm & Save",
-            cancel = "Cancel",
-            retakePhoto = "Retake Photo",
-            discard = "Discard",
-            stay = "Stay",
-            discardChangesTitle = "Discard changes?",
-            discardChangesMessage = "Your changes will not be saved. Are you sure you want to exit?",
-            selectDate = "Select date",
-            closeCalendar = "Close calendar",
-            previousMonth = "Previous month",
-            nextMonth = "Next month",
-            tapDayToSelect = "Tap a day to select it",
-            selectCategory = "Select category",
-            selectCurrency = "Select currency",
-            settings = "Settings",
-            preferences = "Preferences",
-            theme = "Theme",
-            language = "Language",
-            languageSubtitle = "Choose the language for ReceiptAI.",
-            currency = "Currency",
-            security = "Security",
-            requirePinBiometrics = "Require PIN / Biometrics",
-            dataManagement = "Data Management",
-            exportToCsv = "Export to CSV",
-            about = "About",
-            privacyPolicy = "Privacy Policy",
-            dangerZone = "Danger Zone",
-            deleteAllData = "Delete All Data",
-            deleteAllDataTitle = "Delete All Data?",
-            deleteAllDataMessage = "Are you sure? This action cannot be undone and all your expenses will be permanently deleted.",
-            chooseThemeSubtitle = "Choose how ReceiptAI should look.",
-            displayCurrency = "Display currency",
-            displayCurrencySubtitle = "All balances and analytics will be converted to this currency.",
-            filterTransactionType = "Transaction type",
-            all = "All",
-            expenses = "Expenses",
-            allTime = "All time",
-            today = "Today",
-            thisWeek = "This week",
-            clear = "Clear",
-            apply = "Apply",
-            analytics = "Analytics",
-            thisMonth = { "This month · $it" },
-            spendingByCategory = "Spending by category",
-            noAnalytics = "No analytics yet",
-            analyticsEmptySubtitle = "Add transactions to see spending insights.",
-            savedTransactions = { count -> if (count == 1) "1 saved transaction" else "$count saved transactions" },
-            csvExported = "CSV exported successfully",
-            csvExportFailed = "Unable to export CSV",
-            transactionNotFound = "Transaction not found",
-            saveFailed = "Unable to save transaction",
-            deleteFailed = "Unable to delete transaction",
-            deleteDataFailed = "Unable to delete data",
-            receiptScanningSoon = "Receipt scanning is coming soon.",
-            privacyPolicyMessage = "ReceiptAI stores your transaction data locally on this device so you can view your balance, history, and analytics. Your data is not shared with third parties.",
-            completeRequiredFields = "Please complete all required fields.",
-            requiredFields = { "Required: $it." },
-            categoryLabel = ::englishCategory,
-            currencyName = ::englishCurrencyName,
-            dateGroupLabel = { it },
-            themeModeLabel = ::englishThemeMode
+        fun from(resources: Resources): ReceiptAIStrings = ReceiptAIStrings(
+            navigationHome = resources.string(R.string.navigation_home),
+            navigationHistory = resources.string(R.string.navigation_history),
+            navigationAnalytics = resources.string(R.string.navigation_analytics),
+            navigationSettings = resources.string(R.string.navigation_settings),
+            home = resources.string(R.string.home),
+            welcomeBack = resources.string(R.string.welcome_back),
+            totalBalance = resources.string(R.string.total_balance),
+            convertedTo = { resources.string(R.string.converted_to, it) },
+            readyForNextExpense = resources.string(R.string.ready_for_next_expense),
+            monthlySpending = { resources.string(R.string.monthly_spending, it) },
+            spendingInsights = resources.string(R.string.spending_insights),
+            totalSpent = resources.string(R.string.total_spent),
+            recentTransactions = resources.string(R.string.recent_transactions),
+            seeAll = resources.string(R.string.see_all),
+            noTransactions = resources.string(R.string.no_transactions),
+            noMatchingTransactions = resources.string(R.string.no_matching_transactions),
+            tapToAddFirstExpense = resources.string(R.string.tap_to_add_first_expense),
+            merchant = resources.string(R.string.merchant),
+            notSpecified = resources.string(R.string.not_specified),
+            uncategorized = resources.string(R.string.uncategorized),
+            transactions = resources.string(R.string.transactions),
+            searchTransactions = resources.string(R.string.search_transactions),
+            filterTransactions = resources.string(R.string.filter_transactions),
+            details = resources.string(R.string.details),
+            transactionDetails = resources.string(R.string.transaction_details),
+            date = resources.string(R.string.date),
+            account = resources.string(R.string.account),
+            category = resources.string(R.string.category),
+            notes = resources.string(R.string.notes),
+            noNotesAdded = resources.string(R.string.no_notes_added),
+            receipt = resources.string(R.string.receipt),
+            receiptImage = resources.string(R.string.receipt_image),
+            completed = resources.string(R.string.completed),
+            original = { resources.string(R.string.original, it) },
+            delete = resources.string(R.string.delete),
+            edit = resources.string(R.string.edit),
+            deleteTransactionTitle = resources.string(R.string.delete_transaction_title),
+            deleteTransactionMessage = resources.string(R.string.delete_transaction_message),
+            addExpense = resources.string(R.string.add_expense),
+            addExpenseSubtitle = resources.string(R.string.add_expense_subtitle),
+            scanReceipt = resources.string(R.string.scan_receipt),
+            addManually = resources.string(R.string.add_manually),
+            closeAddExpense = resources.string(R.string.close_add_expense),
+            editExpense = resources.string(R.string.edit_expense),
+            navigateBack = resources.string(R.string.navigate_back),
+            merchantNameRequired = resources.string(R.string.merchant_name_required),
+            totalAmountRequired = resources.string(R.string.total_amount_required),
+            enterPositiveAmount = resources.string(R.string.enter_positive_amount),
+            dateRequired = resources.string(R.string.date_required),
+            categoryRequired = resources.string(R.string.category_required),
+            currencyRequired = resources.string(R.string.currency_required),
+            notesOptional = resources.string(R.string.notes_optional),
+            transactionTypeRequired = resources.string(R.string.transaction_type_required),
+            expense = resources.string(R.string.expense),
+            income = resources.string(R.string.income),
+            chooseDate = resources.string(R.string.choose_date),
+            saving = resources.string(R.string.saving),
+            confirmAndSave = resources.string(R.string.confirm_and_save),
+            cancel = resources.string(R.string.cancel),
+            discard = resources.string(R.string.discard),
+            stay = resources.string(R.string.stay),
+            discardChangesTitle = resources.string(R.string.discard_changes_title),
+            discardChangesMessage = resources.string(R.string.discard_changes_message),
+            selectDate = resources.string(R.string.select_date),
+            closeCalendar = resources.string(R.string.close_calendar),
+            previousMonth = resources.string(R.string.previous_month),
+            nextMonth = resources.string(R.string.next_month),
+            tapDayToSelect = resources.string(R.string.tap_day_to_select),
+            selectCategory = resources.string(R.string.select_category),
+            selectCurrency = resources.string(R.string.select_currency),
+            settings = resources.string(R.string.settings),
+            preferences = resources.string(R.string.preferences),
+            theme = resources.string(R.string.theme),
+            language = resources.string(R.string.language),
+            languageSubtitle = resources.string(R.string.language_subtitle),
+            languageName = { value -> resources.localizedLanguageName(value) },
+            currency = resources.string(R.string.currency),
+            security = resources.string(R.string.security),
+            requirePinBiometrics = resources.string(R.string.require_pin_biometrics),
+            appLockTitle = resources.string(R.string.lock_title),
+            appLockSubtitle = resources.string(R.string.lock_subtitle),
+            appLockWrongPin = resources.string(R.string.lock_wrong_pin),
+            appLockSetupTitle = resources.string(R.string.lock_setup_title),
+            appLockDisableTitle = resources.string(R.string.lock_disable_title),
+            appLockEnterCurrentPin = resources.string(R.string.lock_enter_current_pin),
+            appLockEnterNewPin = resources.string(R.string.lock_enter_new_pin),
+            appLockEnterNewPinSubtitle = resources.string(R.string.lock_enter_new_pin_subtitle),
+            appLockConfirmPin = resources.string(R.string.lock_confirm_pin),
+            appLockConfirmPinSubtitle = resources.string(R.string.lock_confirm_pin_subtitle),
+            appLockPinsDontMatch = resources.string(R.string.lock_pins_dont_match),
+            changePin = resources.string(R.string.change_pin),
+            unlockWithBiometrics = resources.string(R.string.unlock_with_biometrics),
+            usePin = resources.string(R.string.use_pin),
+            biometricPromptTitle = resources.string(R.string.biometric_prompt_title),
+            dataManagement = resources.string(R.string.data_management),
+            exportToCsv = resources.string(R.string.export_to_csv),
+            about = resources.string(R.string.about),
+            privacyPolicy = resources.string(R.string.privacy_policy),
+            dangerZone = resources.string(R.string.danger_zone),
+            deleteAllData = resources.string(R.string.delete_all_data),
+            deleteAllDataTitle = resources.string(R.string.delete_all_data_title),
+            deleteAllDataMessage = resources.string(R.string.delete_all_data_message),
+            chooseThemeSubtitle = resources.string(R.string.choose_theme_subtitle),
+            displayCurrency = resources.string(R.string.display_currency),
+            displayCurrencySubtitle = resources.string(R.string.display_currency_subtitle),
+            filterTransactionType = resources.string(R.string.filter_transaction_type),
+            all = resources.string(R.string.all),
+            expenses = resources.string(R.string.expenses),
+            allTime = resources.string(R.string.all_time),
+            today = resources.string(R.string.today),
+            thisWeek = resources.string(R.string.this_week),
+            clear = resources.string(R.string.clear),
+            apply = resources.string(R.string.apply),
+            analytics = resources.string(R.string.analytics),
+            thisMonth = { resources.string(R.string.this_month, it) },
+            spendingByCategory = resources.string(R.string.spending_by_category),
+            noAnalytics = resources.string(R.string.no_analytics),
+            analyticsEmptySubtitle = resources.string(R.string.analytics_empty_subtitle),
+            savedTransactions = { count ->
+                resources.getQuantityString(R.plurals.saved_transactions, count, count)
+            },
+            csvExported = resources.string(R.string.csv_exported),
+            csvExportFailed = resources.string(R.string.csv_export_failed),
+            transactionNotFound = resources.string(R.string.transaction_not_found),
+            saveFailed = resources.string(R.string.save_failed),
+            deleteFailed = resources.string(R.string.delete_failed),
+            deleteDataFailed = resources.string(R.string.delete_data_failed),
+            loadFailed = resources.string(R.string.unable_to_load_expenses),
+            receiptScanningSoon = resources.string(R.string.receipt_scanning_soon),
+            privacyPolicyMessage = resources.string(R.string.privacy_policy_message),
+            completeRequiredFields = resources.string(R.string.complete_required_fields),
+            requiredFields = { resources.string(R.string.required_fields, it) },
+            categoryLabel = { value -> resources.localizedCategory(value) },
+            currencyName = { value -> resources.localizedCurrencyName(value) },
+            dateGroupLabel = { value -> resources.localizedDateGroup(value) },
+            themeModeLabel = { value -> resources.localizedThemeMode(value) }
         )
-
-        private fun ukrainian() = ReceiptAIStrings(
-            navigationHome = "Головна",
-            navigationHistory = "Історія",
-            navigationAnalytics = "Аналітика",
-            navigationSettings = "Налаштування",
-            home = "Головна",
-            welcomeBack = "Вітаємо",
-            totalBalance = "Загальний баланс",
-            convertedTo = { "Конвертовано в $it" },
-            readyForNextExpense = "Готово до наступної витрати",
-            monthlySpending = { "Витрати за місяць · $it" },
-            spendingInsights = "Тут з’явиться статистика витрат",
-            totalSpent = "Всього витрачено",
-            recentTransactions = "Останні транзакції",
-            seeAll = "Усі",
-            noTransactions = "Транзакцій ще немає",
-            noMatchingTransactions = "Відповідних транзакцій немає",
-            tapToAddFirstExpense = "Натисніть +, щоб додати першу витрату.",
-            merchant = "Продавець",
-            notSpecified = "Не вказано",
-            uncategorized = "Без категорії",
-            transactions = "Транзакції",
-            searchTransactions = "Пошук транзакцій...",
-            filterTransactions = "Фільтри транзакцій",
-            details = "Деталі",
-            transactionDetails = "Деталі транзакції",
-            date = "Дата",
-            account = "Рахунок",
-            category = "Категорія",
-            notes = "Нотатки",
-            noNotesAdded = "Нотаток немає.",
-            receipt = "Чек",
-            receiptImage = "Зображення чека",
-            completed = "Виконано",
-            original = { "Оригінал: $it" },
-            delete = "Видалити",
-            edit = "Редагувати",
-            deleteTransactionTitle = "Видалити транзакцію?",
-            deleteTransactionMessage = "Ви впевнені, що хочете видалити цю транзакцію?",
-            addExpense = "Додати витрату",
-            addExpenseSubtitle = "Оберіть спосіб додавання витрати.",
-            scanReceipt = "Сканувати чек",
-            addManually = "Додати вручну",
-            closeAddExpense = "Закрити вікно додавання",
-            editExpense = "Редагувати витрату",
-            confirmDetails = "Підтвердити дані",
-            merchantNameRequired = "Назва продавця *",
-            totalAmountRequired = "Сума *",
-            enterPositiveAmount = "Введіть додатне число, наприклад 14.50.",
-            dateRequired = "Дата *",
-            categoryRequired = "Категорія *",
-            currencyRequired = "Валюта *",
-            notesOptional = "Нотатки (необов’язково)",
-            transactionTypeRequired = "Тип транзакції *",
-            expense = "Витрата",
-            income = "Надходження",
-            chooseDate = "Обрати дату",
-            saving = "Збереження…",
-            confirmAndSave = "Підтвердити й зберегти",
-            cancel = "Скасувати",
-            retakePhoto = "Пересканувати чек",
-            discard = "Вийти",
-            stay = "Залишитися",
-            discardChangesTitle = "Скасувати зміни?",
-            discardChangesMessage = "Зміни не буде збережено. Ви впевнені, що хочете вийти?",
-            selectDate = "Оберіть дату",
-            closeCalendar = "Закрити календар",
-            previousMonth = "Попередній місяць",
-            nextMonth = "Наступний місяць",
-            tapDayToSelect = "Натисніть на день, щоб обрати його",
-            selectCategory = "Оберіть категорію",
-            selectCurrency = "Оберіть валюту",
-            settings = "Налаштування",
-            preferences = "Основні налаштування",
-            theme = "Тема",
-            language = "Мова",
-            languageSubtitle = "Оберіть мову ReceiptAI.",
-            currency = "Валюта",
-            security = "Безпека",
-            requirePinBiometrics = "Запитувати PIN / біометрію",
-            dataManagement = "Керування даними",
-            exportToCsv = "Експортувати в CSV",
-            about = "Про додаток",
-            privacyPolicy = "Політика конфіденційності",
-            dangerZone = "Небезпечна зона",
-            deleteAllData = "Видалити всі дані",
-            deleteAllDataTitle = "Видалити всі дані?",
-            deleteAllDataMessage = "Ви впевнені? Цю дію неможливо скасувати — усі витрати буде видалено назавжди.",
-            chooseThemeSubtitle = "Оберіть вигляд ReceiptAI.",
-            displayCurrency = "Валюта відображення",
-            displayCurrencySubtitle = "Баланс і аналітика будуть конвертовані в цю валюту.",
-            filterTransactionType = "Тип транзакції",
-            all = "Усі",
-            expenses = "Витрати",
-            allTime = "За весь час",
-            today = "Сьогодні",
-            thisWeek = "Цього тижня",
-            clear = "Очистити",
-            apply = "Застосувати",
-            analytics = "Аналітика",
-            thisMonth = { "Цього місяця · $it" },
-            spendingByCategory = "Витрати за категоріями",
-            noAnalytics = "Аналітики ще немає",
-            analyticsEmptySubtitle = "Додайте транзакції, щоб побачити статистику.",
-            savedTransactions = { count -> "Збережених транзакцій: $count" },
-            csvExported = "CSV успішно експортовано",
-            csvExportFailed = "Не вдалося експортувати CSV",
-            transactionNotFound = "Транзакцію не знайдено",
-            saveFailed = "Не вдалося зберегти транзакцію",
-            deleteFailed = "Не вдалося видалити транзакцію",
-            deleteDataFailed = "Не вдалося видалити дані",
-            receiptScanningSoon = "Сканування чеків буде доступне пізніше.",
-            privacyPolicyMessage = "ReceiptAI зберігає дані транзакцій локально на цьому пристрої, щоб ви могли переглядати баланс, історію та аналітику. Ваші дані не передаються третім сторонам.",
-            completeRequiredFields = "Заповніть усі обов’язкові поля.",
-            requiredFields = { "Обов’язкові поля: $it." },
-            categoryLabel = ::ukrainianCategory,
-            currencyName = ::ukrainianCurrencyName,
-            dateGroupLabel = ::ukrainianDateGroup,
-            themeModeLabel = ::ukrainianThemeMode
-        )
-
-        private fun englishCategory(value: String): String = value
-
-        private fun ukrainianCategory(value: String): String = when (value) {
-            "Food & Dining" -> "Їжа та ресторани"
-            "Transport" -> "Транспорт"
-            "Shopping" -> "Покупки"
-            "Health" -> "Здоров’я"
-            "Housing" -> "Житло"
-            "Utilities" -> "Комунальні послуги"
-            "Other" -> "Інше"
-            "All" -> "Усі"
-            else -> value
-        }
-
-        private fun englishDateGroup(value: String): String = value
-
-        private fun englishCurrencyName(value: String): String = when (value) {
-            "USD" -> "US Dollar"
-            "EUR" -> "Euro"
-            "GBP" -> "British Pound"
-            "PLN" -> "Polish Złoty"
-            "CAD" -> "Canadian Dollar"
-            "AUD" -> "Australian Dollar"
-            "JPY" -> "Japanese Yen"
-            else -> value
-        }
-
-        private fun ukrainianCurrencyName(value: String): String = when (value) {
-            "USD" -> "Долар США"
-            "EUR" -> "Євро"
-            "GBP" -> "Британський фунт"
-            "PLN" -> "Польський злотий"
-            "CAD" -> "Канадський долар"
-            "AUD" -> "Австралійський долар"
-            "JPY" -> "Японська єна"
-            else -> value
-        }
-
-        private fun ukrainianDateGroup(value: String): String = when (value) {
-            "Today" -> "Сьогодні"
-            "Yesterday" -> "Вчора"
-            "This Week" -> "Цього тижня"
-            "Older" -> "Раніше"
-            else -> value
-        }
-
-        private fun englishThemeMode(value: String): String = when (value) {
-            "system" -> "System Default"
-            "light" -> "Light"
-            "dark" -> "Dark"
-            else -> value
-        }
-
-        private fun ukrainianThemeMode(value: String): String = when (value) {
-            "system" -> "Системна"
-            "light" -> "Світла"
-            "dark" -> "Темна"
-            else -> value
-        }
     }
 }
 
-val LocalReceiptAIStrings = staticCompositionLocalOf {
-    ReceiptAIStrings.forLanguage(AppLanguage.ENGLISH)
+private fun Resources.string(@StringRes id: Int, vararg formatArgs: Any): String =
+    if (formatArgs.isEmpty()) getString(id) else getString(id, *formatArgs)
+
+private fun Resources.localizedCategory(value: String): String = when (value) {
+    "Food & Dining" -> string(R.string.category_food_dining)
+    "Transport" -> string(R.string.category_transport)
+    "Shopping" -> string(R.string.category_shopping)
+    "Health" -> string(R.string.category_health)
+    "Housing" -> string(R.string.category_housing)
+    "Utilities" -> string(R.string.category_utilities)
+    "Other" -> string(R.string.category_other)
+    "All" -> string(R.string.all)
+    else -> value
 }
 
+private fun Resources.localizedCurrencyName(value: String): String = when (value) {
+    "USD" -> string(R.string.currency_usd)
+    "EUR" -> string(R.string.currency_eur)
+    "GBP" -> string(R.string.currency_gbp)
+    "PLN" -> string(R.string.currency_pln)
+    "CAD" -> string(R.string.currency_cad)
+    "AUD" -> string(R.string.currency_aud)
+    "JPY" -> string(R.string.currency_jpy)
+    else -> value
+}
+
+private fun Resources.localizedLanguageName(value: String): String = when (value) {
+    "en" -> string(R.string.language_english)
+    "uk" -> string(R.string.language_ukrainian)
+    "pl" -> string(R.string.language_polish)
+    "de" -> string(R.string.language_german)
+    "es" -> string(R.string.language_spanish)
+    else -> value
+}
+
+private fun Resources.localizedDateGroup(value: String): String = when (value) {
+    "Today" -> string(R.string.date_group_today)
+    "Yesterday" -> string(R.string.date_group_yesterday)
+    "This Week" -> string(R.string.date_group_this_week)
+    "Older" -> string(R.string.date_group_older)
+    else -> value
+}
+
+private fun Resources.localizedThemeMode(value: String): String = when (value) {
+    "system" -> string(R.string.theme_system_default)
+    "light" -> string(R.string.theme_light)
+    "dark" -> string(R.string.theme_dark)
+    else -> value
+}
+
+val LocalReceiptAIResources = staticCompositionLocalOf<Resources?> { null }
+
 @Composable
-fun receiptAIStrings(): ReceiptAIStrings = LocalReceiptAIStrings.current
+fun receiptAIStrings(): ReceiptAIStrings {
+    val resourceOverride = LocalReceiptAIResources.current
+    val fallbackResources = LocalContext.current.resources
+    return remember(resourceOverride, fallbackResources) {
+        ReceiptAIStrings.from(resourceOverride ?: fallbackResources)
+    }
+}
+
+fun Context.createReceiptAILanguageContext(language: AppLanguage): Context {
+    val configuration = Configuration(resources.configuration)
+    configuration.setLocale(Locale.forLanguageTag(language.storageValue))
+    return createConfigurationContext(configuration)
+}
 
 fun ReceiptAIStrings.localizedError(message: String): String = when (message) {
     "Receipt scanning is coming soon." -> receiptScanningSoon
@@ -462,5 +380,6 @@ fun ReceiptAIStrings.localizedError(message: String): String = when (message) {
     "Unable to save transaction" -> saveFailed
     "Unable to delete transaction" -> deleteFailed
     "Unable to delete data" -> deleteDataFailed
+    "Unable to load expenses" -> loadFailed
     else -> message
 }

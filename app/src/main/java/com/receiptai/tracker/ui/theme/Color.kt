@@ -17,27 +17,37 @@ val ReceiptAIDarkPrimaryText = Color(0xFFF4EFF8)
 val ReceiptAILightSecondaryText = Color(0xFF686572)
 val ReceiptAIDarkSecondaryText = Color(0xFFCBC3D3)
 val ReceiptAIError = Color(0xFFC62828)
+val ReceiptAIBrandViolet = Color(0xFF8E6FD8)
+val ReceiptAIBrandLavender = Color(0xFFE4D7FF)
+val ReceiptAIBrandDeepViolet = Color(0xFF3A2E6B)
+val ReceiptAIBrandNight = Color(0xFF241C45)
 
 @Immutable
 data class ReceiptAIColorTokens(
     val background: Color,
     val surface: Color,
     val primaryText: Color,
-    val secondaryText: Color
+    val secondaryText: Color,
+    val heroGradient: List<Color>,
+    val surfaceGradient: List<Color>
 )
 
 val LightReceiptAIColors = ReceiptAIColorTokens(
     background = ReceiptAILightBackground,
     surface = ReceiptAILightSurface,
     primaryText = ReceiptAILightPrimaryText,
-    secondaryText = ReceiptAILightSecondaryText
+    secondaryText = ReceiptAILightSecondaryText,
+    heroGradient = listOf(ReceiptAIBrandLavender, Color(0xFFBBA5E8), ReceiptAIBrandViolet),
+    surfaceGradient = listOf(Color(0xFFFFFFFF), Color(0xFFF3EEFC))
 )
 
 val DarkReceiptAIColors = ReceiptAIColorTokens(
     background = ReceiptAIDarkBackground,
     surface = ReceiptAIDarkSurface,
     primaryText = ReceiptAIDarkPrimaryText,
-    secondaryText = ReceiptAIDarkSecondaryText
+    secondaryText = ReceiptAIDarkSecondaryText,
+    heroGradient = listOf(Color(0xFF56479B), ReceiptAIBrandDeepViolet, ReceiptAIBrandNight),
+    surfaceGradient = listOf(Color(0xFF241F2E), Color(0xFF1B1720))
 )
 
 val LocalReceiptAIColors = staticCompositionLocalOf { LightReceiptAIColors }
@@ -54,10 +64,8 @@ val ReceiptAIPrimaryText: Color
 val ReceiptAISecondaryText: Color
     @Composable get() = LocalReceiptAIColors.current.secondaryText
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val ReceiptAIHeroGradient: List<Color>
+    @Composable get() = LocalReceiptAIColors.current.heroGradient
 
-val Purple40 = ReceiptAIDeepPurple
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val ReceiptAISurfaceGradient: List<Color>
+    @Composable get() = LocalReceiptAIColors.current.surfaceGradient

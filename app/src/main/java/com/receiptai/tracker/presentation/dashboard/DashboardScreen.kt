@@ -3,6 +3,13 @@ package com.receiptai.tracker.presentation.dashboard
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,11 +48,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -53,7 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.receiptai.tracker.domain.model.Expense
 import com.receiptai.tracker.domain.money.CurrencyConverter
@@ -80,9 +90,11 @@ import java.util.Locale
 import com.receiptai.tracker.ui.theme.ReceiptAIExpenseBudgetTrackerTheme
 import com.receiptai.tracker.ui.theme.ReceiptAIBackground
 import com.receiptai.tracker.ui.theme.ReceiptAIDeepPurple
+import com.receiptai.tracker.ui.theme.ReceiptAIHeroGradient
 import com.receiptai.tracker.ui.theme.ReceiptAIPrimaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISecondaryText
 import com.receiptai.tracker.ui.theme.ReceiptAISurface
+import com.receiptai.tracker.ui.theme.ReceiptAISurfaceGradient
 import com.receiptai.tracker.ui.theme.ThemeMode
 
 private val DashboardBackground: Color
@@ -102,7 +114,9 @@ fun DashboardRoute(
     displayCurrency: String = "USD",
     onDisplayCurrencyChanged: (String) -> Unit = {},
     appLanguage: AppLanguage = AppLanguage.ENGLISH,
-    onLanguageChanged: (AppLanguage) -> Unit = {}
+    onLanguageChanged: (AppLanguage) -> Unit = {},
+    appLockEnabled: Boolean = false,
+    biometricUnlockEnabled: Boolean = false
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -143,103 +157,146 @@ fun DashboardRoute(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (state.transactionFlowScreen) {
-            TransactionFlowScreen.DETAILS -> {
-                state.selectedTransaction?.let { transaction ->
-                    TransactionDetailsScreen(
-                        transaction = transaction.toDetailsUiState(state.currency),
-                        onBack = {
-                            viewModel.onIntent(DashboardIntent.TransactionDetailsDismissed)
-                        },
-                        onDelete = {
-                            viewModel.onIntent(DashboardIntent.DeleteTransactionConfirmed)
-                        },
-                        onEdit = {
-                            viewModel.onIntent(DashboardIntent.EditTransactionClicked)
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-            TransactionFlowScreen.ADD,
-            TransactionFlowScreen.EDIT -> {
-                AddEditTransactionScreen(
-                    state = state.transactionForm,
-                    mode = if (state.transactionFlowScreen == TransactionFlowScreen.EDIT) {
-                        AddEditTransactionMode.EDIT_EXPENSE
+        if (state.isLoading && state.expenses.isEmpty()) {
+            DashboardSkeleton(modifier = Modifier.fillMaxSize())
+        } else {
+            AnimatedContent(
+                targetState = state.transactionFlowScreen,
+                transitionSpec = {
+                    if (targetState == TransactionFlowScreen.NONE) {
+                        (slideInHorizontally { -it / 4 } + fadeIn(tween(220))) togetherWith
+                            (slideOutHorizontally { it / 4 } + fadeOut(tween(160)))
                     } else {
-                        AddEditTransactionMode.ADD_EXPENSE
-                    },
-                    onBack = {
-                        viewModel.onIntent(DashboardIntent.AddEditTransactionDismissed)
-                    },
-                    onStateChange = { form ->
-                        viewModel.onIntent(DashboardIntent.TransactionFormChanged(form))
-                    },
-                    onConfirmSave = {
-                        viewModel.onIntent(DashboardIntent.SaveTransactionClicked)
-                    },
-                    isSaving = state.isSaving,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            TransactionFlowScreen.NONE -> when (state.selectedDestination) {
-                DashboardDestination.HISTORY -> TransactionHistoryScreen(
-                    transactions = state.expenses.map {
-                        it.toHistoryTransaction(state.currency)
-                    },
-                    onDestinationSelected = { destination ->
-                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
-                    },
-                    onAddExpenseClick = {
-                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                    },
-                    onTransactionClick = { transaction ->
-                        viewModel.onIntent(DashboardIntent.TransactionSelected(transaction.id))
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-                DashboardDestination.ANALYTICS -> AnalyticsScreen(
-                    monthlySpendingMinorUnits = state.monthlySpendingMinorUnits,
-                    currency = state.currency,
-                    categoryBreakdown = state.categoryBreakdown,
-                    transactionCount = state.monthlyTransactionCount,
-                    onDestinationSelected = { destination ->
-                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
-                    },
-                    onAddExpenseClick = {
-                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-                DashboardDestination.SETTINGS -> SettingsScreen(
-                    themeMode = themeMode,
-                    onThemeModeSelected = onThemeModeChanged,
-                    currencyCode = displayCurrency,
-                    onCurrencySelected = { currencyCode ->
-                        onDisplayCurrencyChanged(currencyCode)
-                    },
-                    appLanguage = appLanguage,
-                    onLanguageSelected = onLanguageChanged,
-                    onDestinationSelected = { destination ->
-                        viewModel.onIntent(DashboardIntent.DestinationSelected(destination))
-                    },
-                    onAddExpenseClick = {
-                        viewModel.onIntent(DashboardIntent.AddExpenseClicked)
-                    },
-                    onDeleteAllData = {
-                        viewModel.onIntent(DashboardIntent.DeleteAllDataConfirmed)
-                    },
-                    onExportData = {
-                        exportLauncher.launch("receiptai_expenses.csv")
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-                else -> DashboardScreen(
-                    state = state,
-                    onIntent = viewModel::onIntent,
-                    modifier = Modifier.fillMaxSize()
-                )
+                        (slideInHorizontally { it / 4 } + fadeIn(tween(220))) togetherWith
+                            (slideOutHorizontally { -it / 4 } + fadeOut(tween(160)))
+                    }
+                },
+                label = "transactionFlowTransition",
+                modifier = Modifier.fillMaxSize()
+            ) { flowScreen ->
+                when (flowScreen) {
+                    TransactionFlowScreen.DETAILS -> {
+                        val renderedTransaction = remember {
+                            mutableStateOf(state.selectedTransaction)
+                        }
+                        if (state.selectedTransaction != null) {
+                            renderedTransaction.value = state.selectedTransaction
+                        }
+                        renderedTransaction.value?.let { transaction ->
+                            TransactionDetailsScreen(
+                                transaction = transaction.toDetailsUiState(state.currency),
+                                onBack = {
+                                    viewModel.onIntent(DashboardIntent.TransactionDetailsDismissed)
+                                },
+                                onDelete = {
+                                    viewModel.onIntent(DashboardIntent.DeleteTransactionConfirmed)
+                                },
+                                onEdit = {
+                                    viewModel.onIntent(DashboardIntent.EditTransactionClicked)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                    TransactionFlowScreen.ADD,
+                    TransactionFlowScreen.EDIT -> {
+                        val renderedForm = remember {
+                            mutableStateOf(state.transactionForm)
+                        }
+                        if (flowScreen == state.transactionFlowScreen) {
+                            renderedForm.value = state.transactionForm
+                        }
+                        AddEditTransactionScreen(
+                            state = renderedForm.value,
+                            mode = if (flowScreen == TransactionFlowScreen.EDIT) {
+                                AddEditTransactionMode.EDIT_EXPENSE
+                            } else {
+                                AddEditTransactionMode.ADD_EXPENSE
+                            },
+                            onBack = {
+                                viewModel.onIntent(DashboardIntent.AddEditTransactionDismissed)
+                            },
+                            onStateChange = { form ->
+                                viewModel.onIntent(DashboardIntent.TransactionFormChanged(form))
+                            },
+                            onConfirmSave = {
+                                viewModel.onIntent(DashboardIntent.SaveTransactionClicked)
+                            },
+                            isSaving = state.isSaving,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    TransactionFlowScreen.NONE -> AnimatedContent(
+                        targetState = state.selectedDestination,
+                        transitionSpec = {
+                            fadeIn(tween(200)) togetherWith fadeOut(tween(150))
+                        },
+                        label = "destinationTransition",
+                        modifier = Modifier.fillMaxSize()
+                    ) { destination ->
+                        when (destination) {
+                            DashboardDestination.HISTORY -> TransactionHistoryScreen(
+                                transactions = state.expenses.map {
+                                    it.toHistoryTransaction(state.currency)
+                                },
+                                onDestinationSelected = { dest ->
+                                    viewModel.onIntent(DashboardIntent.DestinationSelected(dest))
+                                },
+                                onAddExpenseClick = {
+                                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                                },
+                                onTransactionClick = { transaction ->
+                                    viewModel.onIntent(DashboardIntent.TransactionSelected(transaction.id))
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            DashboardDestination.ANALYTICS -> AnalyticsScreen(
+                                monthlySpendingMinorUnits = state.monthlySpendingMinorUnits,
+                                currency = state.currency,
+                                categoryBreakdown = state.categoryBreakdown,
+                                transactionCount = state.monthlyTransactionCount,
+                                onDestinationSelected = { dest ->
+                                    viewModel.onIntent(DashboardIntent.DestinationSelected(dest))
+                                },
+                                onAddExpenseClick = {
+                                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            DashboardDestination.SETTINGS -> SettingsScreen(
+                                themeMode = themeMode,
+                                onThemeModeSelected = onThemeModeChanged,
+                                currencyCode = displayCurrency,
+                                onCurrencySelected = { currencyCode ->
+                                    onDisplayCurrencyChanged(currencyCode)
+                                },
+                                appLanguage = appLanguage,
+                                onLanguageSelected = onLanguageChanged,
+                                onDestinationSelected = { dest ->
+                                    viewModel.onIntent(DashboardIntent.DestinationSelected(dest))
+                                },
+                                onAddExpenseClick = {
+                                    viewModel.onIntent(DashboardIntent.AddExpenseClicked)
+                                },
+                                onDeleteAllData = {
+                                    viewModel.onIntent(DashboardIntent.DeleteAllDataConfirmed)
+                                },
+                                onExportData = {
+                                    exportLauncher.launch("receiptai_expenses.csv")
+                                },
+                                appLockEnabled = appLockEnabled,
+                                biometricUnlockEnabled = biometricUnlockEnabled,
+                                securityViewModel = hiltViewModel(),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            else -> DashboardScreen(
+                                state = state,
+                                onIntent = viewModel::onIntent,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -297,7 +354,6 @@ private fun Expense.toDetailsUiState(displayCurrency: String) = TransactionDetai
     account = "Main account",
     category = category,
     notes = notes,
-    status = "Completed",
     originalAmountMinorUnits = amountMinorUnits,
     originalCurrency = currency
 )
@@ -426,46 +482,84 @@ private fun BalanceCard(state: DashboardState) {
     val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = strings.totalBalance,
-                style = MaterialTheme.typography.labelLarge,
-                color = SecondaryText
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = formatMoney(state.totalBalanceMinorUnits, state.currency),
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = ReceiptAIPrimaryText
-            )
-            if (state.expenses.any { it.currency != state.currency }) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(ReceiptAIHeroGradient))
+        ) {
+            GradientOrnaments()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
                 Text(
-                    text = strings.convertedTo(state.currency),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryText
+                    text = strings.totalBalance,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ReceiptAIPrimaryText.copy(alpha = 0.72f)
                 )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.ArrowUpward,
-                    contentDescription = null,
-                    tint = Color(0xFF43835D),
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = strings.readyForNextExpense,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SecondaryText
+                    text = formatMoney(state.totalBalanceMinorUnits, state.currency),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = ReceiptAIPrimaryText
                 )
+                if (state.expenses.any { it.currency != state.currency }) {
+                    Text(
+                        text = strings.convertedTo(state.currency),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ReceiptAIPrimaryText.copy(alpha = 0.62f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowUpward,
+                        contentDescription = null,
+                        tint = Color(0xFF43835D),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = strings.readyForNextExpense,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReceiptAIPrimaryText.copy(alpha = 0.62f)
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun GradientOrnaments() {
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+    ) {
+        val ornamentColor = Color.White.copy(alpha = 0.10f)
+        drawCircle(
+            color = ornamentColor,
+            radius = size.minDimension * 0.42f,
+            center = Offset(
+                x = size.width * 0.92f,
+                y = size.height * 0.08f
+            )
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.07f),
+            radius = size.minDimension * 0.30f,
+            center = Offset(
+                x = size.width * 0.74f,
+                y = size.height * 0.66f
+            )
+        )
     }
 }
 
@@ -474,40 +568,46 @@ private fun MonthlySpendingCard(state: DashboardState) {
     val strings = receiptAIStrings()
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = strings.monthlySpending(state.currency),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = ReceiptAIPrimaryText
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            if (state.categoryBreakdown.isEmpty()) {
-                EmptySpendingSummary()
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SpendingDonut(
-                        totalSpent = formatMoney(
-                            state.monthlySpendingMinorUnits,
-                            state.currency
-                        ),
-                        categories = state.categoryBreakdown,
-                        modifier = Modifier.size(164.dp)
-                    )
-                    Spacer(modifier = Modifier.width(20.dp))
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(ReceiptAISurfaceGradient))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = strings.monthlySpending(state.currency),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = ReceiptAIPrimaryText
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (state.categoryBreakdown.isEmpty()) {
+                    EmptySpendingSummary()
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        state.categoryBreakdown.forEach { category ->
-                            CategoryLegend(category = category)
+                        SpendingDonut(
+                            totalSpent = formatMoney(
+                                state.monthlySpendingMinorUnits,
+                                state.currency
+                            ),
+                            categories = state.categoryBreakdown,
+                            modifier = Modifier.size(164.dp)
+                        )
+                        Spacer(modifier = Modifier.width(20.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            state.categoryBreakdown.forEach { category ->
+                                CategoryLegend(category = category)
+                            }
                         }
                     }
                 }
@@ -761,7 +861,7 @@ private fun EmptyTransactionsCard() {
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun DashboardScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         DashboardScreen(
             state = DashboardState(isLoading = false),
             onIntent = {}

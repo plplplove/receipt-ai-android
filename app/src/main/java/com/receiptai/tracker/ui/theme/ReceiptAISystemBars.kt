@@ -11,11 +11,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 
-/**
- * Keeps system bars inside Compose dialogs and sheets aligned with the app theme.
- * Dialogs use their own Window, so the activity-level edge-to-edge configuration
- * does not automatically apply to them.
- */
 @Composable
 fun ReceiptAISystemBarsEffect(
     statusBarColor: Color = ReceiptAIBackground,

@@ -88,7 +88,6 @@ data class TransactionDetailsUiState(
     val account: String = "",
     val category: String = "",
     val notes: String = "",
-    val status: String = "Completed",
     val originalAmountMinorUnits: Long = amountMinorUnits,
     val originalCurrency: String = currency
 )
@@ -97,8 +96,8 @@ data class TransactionDetailsUiState(
 fun TransactionDetailsScreen(
     transaction: TransactionDetailsUiState,
     onBack: () -> Unit,
-    onDelete: (TransactionDetailsUiState) -> Unit,
-    onEdit: (TransactionDetailsUiState) -> Unit,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isDeleteDialogVisible by rememberSaveable { mutableStateOf(false) }
@@ -128,7 +127,7 @@ fun TransactionDetailsScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = strings.details,
+                                contentDescription = strings.navigateBack,
                                 tint = ReceiptAIPrimaryText
                             )
                         }
@@ -143,7 +142,7 @@ fun TransactionDetailsScreen(
         bottomBar = {
             TransactionDetailsActions(
                 onDeleteClick = { isDeleteDialogVisible = true },
-                onEditClick = { onEdit(transaction) }
+                onEditClick = { onEdit() }
             )
         }
     ) { innerPadding ->
@@ -176,7 +175,7 @@ fun TransactionDetailsScreen(
             confirmColor = DeleteRed,
             onConfirm = {
                 isDeleteDialogVisible = false
-                onDelete(transaction)
+                onDelete()
             },
             onDismiss = { isDeleteDialogVisible = false }
         )
@@ -506,14 +505,13 @@ private val PreviewTransactionDetails = TransactionDetailsUiState(
     dateText = "Aug 10, 2026 · 12:45 PM",
     account = "Main account",
     category = "Food & Dining",
-    notes = "Lunch with the team.",
-    status = "Completed"
+    notes = "Lunch with the team."
 )
 
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun TransactionDetailsScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         TransactionDetailsScreen(
             transaction = PreviewTransactionDetails,
             onBack = {},

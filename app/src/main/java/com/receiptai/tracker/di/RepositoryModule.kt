@@ -1,7 +1,9 @@
 package com.receiptai.tracker.di
 
 import com.receiptai.tracker.data.repository.ExpenseRepositoryImpl
+import com.receiptai.tracker.data.settings.SettingsRepositoryImpl
 import com.receiptai.tracker.domain.repository.ExpenseRepository
+import com.receiptai.tracker.domain.repository.SettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -16,4 +18,10 @@ abstract class RepositoryModule {
     abstract fun bindExpenseRepository(
         implementation: ExpenseRepositoryImpl
     ): ExpenseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(
+        implementation: SettingsRepositoryImpl
+    ): SettingsRepository
 }

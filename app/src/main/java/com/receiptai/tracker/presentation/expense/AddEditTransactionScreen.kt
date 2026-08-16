@@ -92,7 +92,6 @@ import java.util.Locale
 
 enum class AddEditTransactionMode {
     ADD_EXPENSE,
-    CONFIRM_DETAILS,
     EDIT_EXPENSE
 }
 
@@ -113,9 +112,7 @@ data class AddEditTransactionUiState(
 )
 
 data class TransactionCurrencyOption(
-    val code: String,
-    val name: String,
-    val symbol: String
+    val code: String
 )
 
 private data class TransactionDropdownOption(
@@ -134,13 +131,13 @@ private val DefaultTransactionCategories = listOf(
 )
 
 private val DefaultTransactionCurrencies = listOf(
-    TransactionCurrencyOption("USD", "US Dollar", "$"),
-    TransactionCurrencyOption("EUR", "Euro", "€"),
-    TransactionCurrencyOption("GBP", "British Pound", "£"),
-    TransactionCurrencyOption("PLN", "Polish Złoty", "zł"),
-    TransactionCurrencyOption("CAD", "Canadian Dollar", "CA$"),
-    TransactionCurrencyOption("AUD", "Australian Dollar", "A$"),
-    TransactionCurrencyOption("JPY", "Japanese Yen", "¥")
+    TransactionCurrencyOption("USD"),
+    TransactionCurrencyOption("EUR"),
+    TransactionCurrencyOption("GBP"),
+    TransactionCurrencyOption("PLN"),
+    TransactionCurrencyOption("CAD"),
+    TransactionCurrencyOption("AUD"),
+    TransactionCurrencyOption("JPY")
 )
 
 private val ValidationRed = Color(0xFFC62828)
@@ -151,13 +148,12 @@ fun AddEditTransactionScreen(
     state: AddEditTransactionUiState,
     onBack: () -> Unit,
     onStateChange: (AddEditTransactionUiState) -> Unit,
-    onConfirmSave: (AddEditTransactionUiState) -> Unit,
+    onConfirmSave: () -> Unit,
     modifier: Modifier = Modifier,
     mode: AddEditTransactionMode = AddEditTransactionMode.ADD_EXPENSE,
     categories: List<String> = DefaultTransactionCategories,
     currencies: List<TransactionCurrencyOption> = DefaultTransactionCurrencies,
-    isSaving: Boolean = false,
-    onDateClick: () -> Unit = {}
+    isSaving: Boolean = false
 ) {
     var isCategoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isCurrencyMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -168,12 +164,10 @@ fun AddEditTransactionScreen(
     val strings = receiptAIStrings()
     val title = when (mode) {
         AddEditTransactionMode.ADD_EXPENSE -> strings.addExpense
-        AddEditTransactionMode.CONFIRM_DETAILS -> strings.confirmDetails
         AddEditTransactionMode.EDIT_EXPENSE -> strings.editExpense
     }
     val secondaryActionLabel = when (mode) {
         AddEditTransactionMode.ADD_EXPENSE -> strings.cancel
-        AddEditTransactionMode.CONFIRM_DETAILS -> strings.retakePhoto
         AddEditTransactionMode.EDIT_EXPENSE -> strings.cancel
     }
     val isFormValid = state.isFormValid()
@@ -220,7 +214,7 @@ fun AddEditTransactionScreen(
                         IconButton(onClick = requestExit) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = strings.details,
+                                contentDescription = strings.navigateBack,
                                 tint = ReceiptAIPrimaryText
                             )
                         }
@@ -239,7 +233,7 @@ fun AddEditTransactionScreen(
                 isSaving = isSaving,
                 validationMessage = validationMessage,
                 hasAmountError = hasAmountError,
-                onConfirmClick = { onConfirmSave(state) },
+                    onConfirmClick = { onConfirmSave() },
                 onSecondaryClick = requestExit
             )
         }
@@ -268,7 +262,6 @@ fun AddEditTransactionScreen(
                         isCurrencyMenuExpanded = it
                     },
                     onDateClick = {
-                        onDateClick()
                         isCalendarVisible = true
                     },
                     categoryLeadingIcon = Icons.Default.Category,
@@ -982,24 +975,10 @@ private val PreviewAddEditState = AddEditTransactionUiState(
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun AddEditTransactionScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
+    ReceiptAIExpenseBudgetTrackerTheme() {
         AddEditTransactionScreen(
             state = PreviewAddEditState,
             mode = AddEditTransactionMode.ADD_EXPENSE,
-            onBack = {},
-            onStateChange = {},
-            onConfirmSave = {}
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 390, heightDp = 844)
-@Composable
-private fun ConfirmDetailsScreenPreview() {
-    ReceiptAIExpenseBudgetTrackerTheme(dynamicColor = false) {
-        AddEditTransactionScreen(
-            state = PreviewAddEditState,
-            mode = AddEditTransactionMode.CONFIRM_DETAILS,
             onBack = {},
             onStateChange = {},
             onConfirmSave = {}

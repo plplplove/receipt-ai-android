@@ -4,13 +4,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.Currency
 
-/**
- * Converts stored minor units into the user's selected display currency.
- *
- * These are offline reference rates so the UI remains deterministic and
- * usable without network access. A production rate provider can replace this
- * object later without changing presentation or persistence models.
- */
 object CurrencyConverter {
     private val referenceRateToUsd = mapOf(
         "USD" to BigDecimal("1.000000"),

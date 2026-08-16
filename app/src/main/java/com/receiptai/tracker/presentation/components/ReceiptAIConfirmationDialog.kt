@@ -106,31 +106,31 @@ fun ReceiptAIConfirmationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ReceiptAIDeepPurple,
-                            contentColor = ReceiptAIOnBrand
-                        )
-                    ) {
-                        Text(dismissLabel)
-                    }
                     OutlinedButton(
-                        onClick = onConfirm,
+                        onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp),
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(
                             width = 1.dp,
-                            color = confirmColor.copy(alpha = 0.65f)
+                            color = ReceiptAISecondaryText.copy(alpha = 0.45f)
                         ),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = confirmColor
+                            contentColor = ReceiptAISecondaryText
+                        )
+                    ) {
+                        Text(dismissLabel)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = confirmColor,
+                            contentColor = ReceiptAIOnBrand
                         )
                     ) {
                         Text(confirmLabel)
